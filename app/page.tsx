@@ -39,6 +39,13 @@ export default function Page() {
   const [emailSent, setEmailSent] = useState(false);
   const isLoading = status === 'streaming' || status === 'submitted';
 
+  // Refs so event handlers always read current values without stale closures
+  const messagesRef = useRef(messages);
+  const emailSentRef = useRef(emailSent);
+  const abandonSentRef = useRef(false);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { emailSentRef.current = emailSent; }, [emailSent]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -59,6 +66,22 @@ export default function Page() {
       }
     }
   }, [messages, router]);
+
+  useEffect(() => {
+    const sendAbandon = () => {
+      if (abandonSentRef.current || emailSentRef.current || messagesRef.current.length === 0) return;
+      abandonSentRef.current = true;
+      const payload = JSON.stringify({ messages: messagesRef.current });
+      navigator.sendBeacon('/api/abandon', new Blob([payload], { type: 'application/json' }));
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') sendAbandon(); };
+    window.addEventListener('beforeunload', sendAbandon);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', sendAbandon);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
