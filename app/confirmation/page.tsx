@@ -348,7 +348,16 @@ export default function ConfirmationPage() {
         </div>
 
         {unlocked && (
-          <div className="text-center mt-6">
+          <div className="flex flex-col items-center gap-4 mt-6">
+            <Link
+              href="/options"
+              className="inline-block text-white rounded-xl px-8 py-3 text-sm font-medium transition"
+              style={{ background: '#C94BBE' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#a83a9e')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#C94BBE')}
+            >
+              See venue options →
+            </Link>
             <Link href="/" className="text-xs text-neutral-400 hover:text-neutral-600 transition underline underline-offset-2">
               Submit another inquiry
             </Link>
