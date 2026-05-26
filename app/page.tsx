@@ -27,7 +27,7 @@ export default function Page() {
   useEffect(() => {
     for (const m of messages) {
       for (const p of m.parts) {
-        if (p.type === 'tool-invocation' && p.state === 'output-available') {
+        if (p.type === 'tool-sendSummaryEmail' && p.state === 'output-available') {
           setEmailSent(true);
           sessionStorage.setItem('venuehopperSummary', JSON.stringify(p.input));
           router.push('/confirmation');
