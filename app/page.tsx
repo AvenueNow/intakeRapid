@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { UIMessage } from 'ai';
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function Page() {
   const { messages, sendMessage, status } = useChat();
@@ -65,6 +66,7 @@ export default function Page() {
             <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed bg-neutral-100 text-neutral-800">
               Hello! Tell me a bit about your event.
             </div>
+
           </div>
 
           {messages.map((m: UIMessage, i: number) => {
@@ -79,13 +81,13 @@ export default function Page() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm max-w-none ${
                     isUser
-                      ? 'bg-neutral-900 text-white rounded-br-sm'
+                      ? 'bg-neutral-900 text-white rounded-br-sm prose-invert'
                       : 'bg-neutral-100 text-neutral-800 rounded-bl-sm'
                   }`}
                 >
-                  {text}
+                  <ReactMarkdown>{text}</ReactMarkdown>
                 </div>
               </div>
             );
