@@ -53,7 +53,7 @@ export default function Page() {
         if (p.type === 'tool-sendSummaryEmail' && p.state === 'output-available') {
           setEmailSent(true);
           sessionStorage.setItem('venuehopperSummary', JSON.stringify(p.input));
-          router.push('/confirmation');
+          setTimeout(() => router.push('/confirmation'), 3000);
           return;
         }
       }
