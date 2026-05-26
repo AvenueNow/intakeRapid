@@ -26,8 +26,6 @@ Keep your messages short — one or two sentences max. Ask one focused question 
 
 Once all required fields are collected, ask exactly: "Great, I have what I need to get a few options for you. Anything else I'm missing?" — wait for their response, then call the sendSummaryEmail tool and close briefly with "Got it. Let me get you some options...".
 
-Do not ask for the client's name or contact info — only capture it if they volunteer it.
-
 Stay on topic (event planning only). Don't make commitments. Don't tell them about package information. Focus on getting information, even ambiguously.`;
 
 const summarySchema = z.object({
@@ -39,11 +37,6 @@ const summarySchema = z.object({
   duration: z.string().describe('How long the event will run'),
   dietaryRestrictions: z.string().describe('Any dietary restrictions or notes'),
   guestCount: z.string().describe('Approximate number of guests'),
-  clientName: z.string().optional().describe('Client name if mentioned'),
-  clientContact: z
-    .string()
-    .optional()
-    .describe('Client email or phone if mentioned'),
 });
 
 type SummaryDetails = z.infer<typeof summarySchema>;
@@ -109,10 +102,6 @@ function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
     ['Agenda', details.agenda],
     ['Dietary Restrictions', details.dietaryRestrictions],
   ];
-  if (details.clientName) rows.push(['Client Name', details.clientName]);
-  if (details.clientContact)
-    rows.push(['Client Contact', details.clientContact]);
-
   const tableRows = rows
     .map(
       ([label, value]) => `
