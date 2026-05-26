@@ -1,65 +1,146 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useChat } from '@ai-sdk/react';
+import { UIMessage } from 'ai';
+import { useEffect, useRef, useState } from 'react';
+
+export default function Page() {
+  const { messages, sendMessage, status } = useChat();
+
+  const [input, setInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const isLoading = status === 'streaming' || status === 'submitted';
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading) inputRef.current?.focus();
+  }, [isLoading]);
+
+  useEffect(() => {
+    const hasToolCall = messages.some((m: UIMessage) =>
+      m.parts.some((p) => p.type === 'tool-invocation')
+    );
+    if (hasToolCall) setEmailSent(true);
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading || emailSent) return;
+    sendMessage({ text: input.trim() });
+    setInput('');
+  };
+
+  const getTextContent = (m: UIMessage) =>
+    m.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => (p.type === 'text' ? p.text : ''))
+      .join('');
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-neutral-50 flex flex-col items-center py-12 px-4">
+      <div className="w-full max-w-2xl mb-8 text-center">
+        <p className="text-xs font-semibold tracking-widest text-neutral-400 uppercase mb-2">
+          VenueHopper
+        </p>
+        <h1 className="text-3xl font-semibold text-neutral-900 tracking-tight">
+          Let&apos;s plan your event
+        </h1>
+        <p className="mt-2 text-neutral-500 text-sm">
+          Tell our assistant about what you have in mind.
+        </p>
+      </div>
+
+      <div className="w-full max-w-2xl flex flex-col bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[520px]">
+          {/* Static welcome message */}
+          <div className="flex justify-start">
+            <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+              <span className="text-white text-xs font-bold">V</span>
+            </div>
+            <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed bg-neutral-100 text-neutral-800">
+              Hello! Tell me a bit about your event.
+            </div>
+          </div>
+
+          {messages.map((m: UIMessage, i: number) => {
+            const text = getTextContent(m);
+            if (!text) return null;
+            const isUser = m.role === 'user';
+            return (
+              <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                {!isUser && (
+                  <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+                    <span className="text-white text-xs font-bold">V</span>
+                  </div>
+                )}
+                <div
+                  className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    isUser
+                      ? 'bg-neutral-900 text-white rounded-br-sm'
+                      : 'bg-neutral-100 text-neutral-800 rounded-bl-sm'
+                  }`}
+                >
+                  {text}
+                </div>
+              </div>
+            );
+          })}
+
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center mr-3 flex-shrink-0">
+                <span className="text-white text-xs font-bold">V</span>
+              </div>
+              <div className="bg-neutral-100 px-4 py-3 rounded-2xl rounded-bl-sm">
+                <div className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {emailSent && (
+            <div className="flex justify-center mt-2">
+              <div className="text-xs text-neutral-400 bg-neutral-50 border border-neutral-200 px-4 py-2 rounded-full">
+                Your details have been sent — we&apos;ll be in touch soon.
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="border-t border-neutral-100 p-4">
+          <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              disabled={isLoading || emailSent}
+              className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim() || emailSent}
+              className="bg-neutral-900 text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              Send
+            </button>
+          </form>
         </div>
-      </main>
+      </div>
+
+      <p className="mt-6 text-xs text-neutral-400">
+        Powered by VenueHopper &mdash; Your answers are sent directly to our team.
+      </p>
     </div>
   );
 }
