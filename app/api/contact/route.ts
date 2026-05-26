@@ -6,18 +6,76 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(req: Request) {
   const { name, email, phone, summary } = await req.json();
 
+  const FIELD_LABELS: Record<string, string> = {
+    eventType: 'Event Type',
+    availability: 'Date(s)',
+    location: 'Location',
+    budget: 'Budget',
+    guestCount: 'Guest Count',
+    duration: 'Duration',
+    agenda: 'Agenda',
+    dietaryRestrictions: 'Dietary Restrictions',
+  };
+
   const summaryRows = summary
     ? Object.entries(summary as Record<string, string>)
         .filter(([, v]) => v)
         .map(
           ([k, v]) => `
       <tr>
-        <td style="padding:8px 16px;font-weight:600;color:#374151;background:#f9fafb;width:160px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;">${k.replace(/([A-Z])/g, ' $1')}</td>
+        <td style="padding:8px 16px;font-weight:600;color:#374151;background:#f9fafb;width:160px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;">${FIELD_LABELS[k] ?? k.replace(/([A-Z])/g, ' $1')}</td>
         <td style="padding:8px 16px;color:#111827;border-bottom:1px solid #e5e7eb;">${v}</td>
       </tr>`
         )
         .join('')
     : '';
+
+  const confirmationSummaryRows = summary
+    ? Object.entries(summary as Record<string, string>)
+        .filter(([k, v]) => v && FIELD_LABELS[k])
+        .map(
+          ([k, v]) => `
+      <tr>
+        <td style="padding:10px 16px;font-weight:600;color:#C94BBE;background:#fdf9ff;width:160px;border-bottom:1px solid #f0edf6;font-size:13px;">${FIELD_LABELS[k]}</td>
+        <td style="padding:10px 16px;color:#111827;border-bottom:1px solid #f0edf6;font-size:14px;">${v}</td>
+      </tr>`
+        )
+        .join('')
+    : '';
+
+  const confirmationHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:system-ui,sans-serif;background:#F0EDF6;margin:0;padding:32px;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#C94BBE;padding:32px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;">
+          <span style="color:#fff;font-size:16px;font-weight:700;">V</span>
+        </div>
+        <span style="color:rgba(255,255,255,0.9);font-size:12px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;">VenueHopper</span>
+      </div>
+      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;line-height:1.3;">We&apos;ve got your inquiry!</h1>
+      <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px;line-height:1.6;">
+        Thanks, ${name}. We&apos;ve received your event details and our team will be in touch with venue options within 48 hours.
+      </p>
+    </div>
+    ${confirmationSummaryRows ? `
+    <div style="padding:24px 32px 8px;">
+      <p style="margin:0 0 12px;color:#6b7280;font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Your event summary</p>
+    </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <tbody>${confirmationSummaryRows}</tbody>
+    </table>` : ''}
+    <div style="padding:24px 32px;border-top:1px solid #f0edf6;text-align:center;">
+      <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+        Questions? Reply to this email or reach us at<br>
+        <a href="mailto:events@venuehopper.com" style="color:#C94BBE;text-decoration:none;">events@venuehopper.com</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -59,12 +117,20 @@ export async function POST(req: Request) {
 </html>`;
 
   try {
-    await resend.emails.send({
-      from: 'Intake Form <no-reply@venuehopper.com>',
-      to: 'events@venuehopper.com',
-      subject: `Contact Info — ${name}`,
-      html,
-    });
+    await Promise.all([
+      resend.emails.send({
+        from: 'Intake Form <no-reply@venuehopper.com>',
+        to: 'events@venuehopper.com',
+        subject: `Contact Info — ${name}`,
+        html,
+      }),
+      resend.emails.send({
+        from: 'VenueHopper <no-reply@venuehopper.com>',
+        to: email,
+        subject: 'Your VenueHopper inquiry is confirmed',
+        html: confirmationHtml,
+      }),
+    ]);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Contact email failed:', err);
