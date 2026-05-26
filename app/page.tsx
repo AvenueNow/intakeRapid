@@ -3,10 +3,12 @@
 import { useChat } from '@ai-sdk/react';
 import { UIMessage } from 'ai';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 
 export default function Page() {
   const { messages, sendMessage, status } = useChat();
+  const router = useRouter();
 
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -23,11 +25,21 @@ export default function Page() {
   }, [isLoading]);
 
   useEffect(() => {
-    const hasToolCall = messages.some((m: UIMessage) =>
-      m.parts.some((p) => p.type === 'tool-invocation')
-    );
-    if (hasToolCall) setEmailSent(true);
-  }, [messages]);
+    for (const m of messages) {
+      for (const p of m.parts) {
+        if (
+          p.type === 'tool-invocation' &&
+          p.toolName === 'sendSummaryEmail' &&
+          p.state === 'result'
+        ) {
+          setEmailSent(true);
+          sessionStorage.setItem('venuehopperSummary', JSON.stringify(p.input));
+          router.push('/confirmation');
+          return;
+        }
+      }
+    }
+  }, [messages, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,14 +116,6 @@ export default function Page() {
                   <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:150ms]" />
                   <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:300ms]" />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {emailSent && (
-            <div className="flex justify-center mt-2">
-              <div className="text-xs text-neutral-400 bg-neutral-50 border border-neutral-200 px-4 py-2 rounded-full">
-                Your details have been sent — we&apos;ll be in touch soon.
               </div>
             </div>
           )}
