@@ -11,17 +11,20 @@ const anthropic = createAnthropic({
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const SYSTEM_PROMPT = `You're a conversational assistant helping plan events. Collect the following from the user:
+const SYSTEM_PROMPT = `You're a conversational assistant for VenueHopper, helping event organizers find venues in New York City. Collect the following from the user:
 
 - Availability (date/s they're considering)
-- Location (city or venue preference)
+- Location (NYC neighborhood or venue preference — e.g. Brooklyn, Midtown, rooftop, waterfront)
 - Budget
 - Event type (wedding, birthday, corporate, etc.)
 - Agenda (what they want to happen at the event)
 - Duration (how long the event will run)
 - Dietary restrictions
+- Guest count (can be ballpark)
 
-Keep your messages short — one or two sentences max. Ask one focused question at a time and let the user do the talking. Don't summarize or repeat back what they've said. When all info is collected, call the sendSummaryEmail tool, then close briefly by saying you'll be in touch with options.
+Keep your messages short — one or two sentences max. Ask one focused question at a time and let the user do the talking. Don't summarize or repeat back what they've said.
+
+Once all required fields are collected, ask exactly: "Great, I have what I need to get a few options for you. Anything else I'm missing?" — wait for their response, then call the sendSummaryEmail tool and close briefly with "Got it. Let me get you some options...".
 
 Do not ask for the client's name or contact info — only capture it if they volunteer it.
 
@@ -29,12 +32,13 @@ Stay on topic (event planning only). Don't make commitments. Don't tell them abo
 
 const summarySchema = z.object({
   availability: z.string().describe('Date(s) the client is considering'),
-  location: z.string().describe('City or venue preference'),
+  location: z.string().describe('NYC neighborhood or venue preference'),
   budget: z.string().describe('Budget range or amount'),
   eventType: z.string().describe('Type of event'),
   agenda: z.string().describe('What they want to happen at the event'),
   duration: z.string().describe('How long the event will run'),
   dietaryRestrictions: z.string().describe('Any dietary restrictions or notes'),
+  guestCount: z.string().describe('Approximate number of guests'),
   clientName: z.string().optional().describe('Client name if mentioned'),
   clientContact: z
     .string()
@@ -62,7 +66,7 @@ export async function POST(req: Request) {
               from: 'Intake Form <no-reply@venuehopper.com>',
               to: 'events@venuehopper.com',
               subject: `New Event Inquiry — ${details.eventType}`,
-              html: buildEmailHtml(details),
+              html: buildEmailHtml(details, messages),
             });
             return { success: true };
           } catch (err) {
@@ -77,12 +81,30 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse();
 }
 
-function buildEmailHtml(details: SummaryDetails) {
+type UIMessage = { role: string; content: string | { type: string; text?: string }[] };
+
+function buildTranscriptHtml(messages: UIMessage[]): string {
+  const lines = messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => {
+      const text = Array.isArray(m.content)
+        ? m.content.filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ')
+        : m.content;
+      const label = m.role === 'user' ? 'User' : 'Assistant';
+      const bg = m.role === 'user' ? '#f9fafb' : '#ffffff';
+      return `<tr><td style="padding:8px 16px;font-weight:600;color:#6b7280;width:90px;background:${bg};border-bottom:1px solid #e5e7eb;font-size:12px;vertical-align:top;">${label}</td><td style="padding:8px 16px;color:#111827;border-bottom:1px solid #e5e7eb;font-size:13px;background:${bg};white-space:pre-wrap;">${text}</td></tr>`;
+    })
+    .join('');
+  return `<table style="width:100%;border-collapse:collapse;""><tbody>${lines}</tbody></table>`;
+}
+
+function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
   const rows: [string, string][] = [
     ['Event Type', details.eventType],
     ['Availability', details.availability],
     ['Location', details.location],
     ['Budget', details.budget],
+    ['Guest Count', details.guestCount],
     ['Duration', details.duration],
     ['Agenda', details.agenda],
     ['Dietary Restrictions', details.dietaryRestrictions],
@@ -113,8 +135,9 @@ function buildEmailHtml(details: SummaryDetails) {
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${tableRows}</tbody>
     </table>
-    <div style="padding:20px 32px;border-top:1px solid #e5e7eb;">
-      <p style="margin:0;color:#6b7280;font-size:13px;">This inquiry was collected by your AI event planning assistant.</p>
+    <div style="padding:20px 32px 8px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;">Full Conversation</p>
+      ${buildTranscriptHtml(messages)}
     </div>
   </div>
 </body>

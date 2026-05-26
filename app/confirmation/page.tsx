@@ -8,6 +8,7 @@ interface EventSummary {
   availability?: string;
   location?: string;
   budget?: string;
+  guestCount?: string;
   duration?: string;
   agenda?: string;
   dietaryRestrictions?: string;
@@ -22,8 +23,9 @@ const LABELS: [keyof EventSummary, string, boolean][] = [
   ['availability',       'Date(s)',             false],
   ['location',           'Location',            false],
   ['budget',             'Budget',              false],
+  ['guestCount',         'Guest Count',         false],
   ['duration',           'Duration',            false],
-  ['agenda',             'Agenda',              true ],  // textarea
+  ['agenda',             'Agenda',              true ],
   ['dietaryRestrictions','Dietary Restrictions',false],
   ['clientName',         'Name',                false],
   ['clientContact',      'Contact',             false],
@@ -126,7 +128,13 @@ export default function ConfirmationPage() {
   };
 
   const startEdit = () => {
-    setDraft({ ...summary });
+    const contactName = contact.name.trim();
+    const contactInfo = [contact.email, contact.phone].filter(Boolean).join(' · ');
+    setDraft({
+      ...summary,
+      clientName: summary?.clientName || contactName || undefined,
+      clientContact: summary?.clientContact || contactInfo || undefined,
+    });
     setSaveError('');
     setSavedAt(null);
     setEditMode(true);
