@@ -11,7 +11,7 @@ const anthropic = createAnthropic({
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const SYSTEM_PROMPT = `You're a conversational agent. You'll have a conversation with a potential customer planning an event and you need to find the following information:
+const SYSTEM_PROMPT = `You're a conversational assistant helping plan events. Collect the following from the user:
 
 - Availability (date/s they're considering)
 - Location (city or venue preference)
@@ -21,11 +21,11 @@ const SYSTEM_PROMPT = `You're a conversational agent. You'll have a conversation
 - Duration (how long the event will run)
 - Dietary restrictions
 
-Have a conversation with the user until all of the above info is collected. Ask one or two questions at a time — don't overwhelm them. When you have gathered all the information, use the sendSummaryEmail tool to send a summary, then politely close the conversation by saying you'll get back to them with options.
+Keep your messages short — one or two sentences max. Ask one focused question at a time and let the user do the talking. Don't summarize or repeat back what they've said. When all info is collected, call the sendSummaryEmail tool, then close briefly by saying you'll be in touch with options.
 
-Be warm, friendly, and professional. Don't answer anything too committally. Don't answer anything not related to event planning.
+Stay on topic (event planning only). Don't make commitments. Don't tell them about package information. Focus on getting information, even ambiguously.
 
-Start the conversation with exactly: "Hello! Tell me a bit about your event."`;
+Start with exactly: "Hello! Tell me a bit about your event."`;
 
 const summarySchema = z.object({
   availability: z.string().describe('Date(s) the client is considering'),
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         execute: async (details: SummaryDetails) => {
           try {
             await resend.emails.send({
-              from: 'Intake Form <onboarding@resend.dev>',
+              from: 'Intake Form <no-reply@venuehopper.com>',
               to: 'events@venuehopper.com',
               subject: `New Event Inquiry — ${details.eventType}`,
               html: buildEmailHtml(details),
