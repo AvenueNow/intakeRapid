@@ -103,6 +103,7 @@ function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
 <body style="font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:32px;">
   <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
     <div style="background:#1d1d1f;padding:28px 32px;">
+      <img src="https://intake-rapid.vercel.app/logo.svg" alt="VenueHopper" width="36" height="36" style="display:block;width:36px;height:36px;margin-bottom:14px;" />
       <h1 style="color:#ffffff;margin:0;font-size:20px;font-weight:600;">New Event Inquiry</h1>
       <p style="color:#9ca3af;margin:6px 0 0;font-size:14px;">Submitted via VenueHopper intake form</p>
     </div>

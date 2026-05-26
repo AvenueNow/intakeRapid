@@ -36,6 +36,7 @@ export async function POST(req: Request) {
 <body style="font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:32px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
     <div style="background:#C94BBE;padding:28px 32px;">
+      <img src="https://intake-rapid.vercel.app/logo.svg" alt="VenueHopper" width="36" height="36" style="display:block;width:36px;height:36px;margin-bottom:14px;" />
       <h1 style="color:#fff;margin:0;font-size:20px;font-weight:600;">Updated Event Inquiry</h1>
       <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px;">${contact.name} · ${contact.email}${contact.phone ? ` · ${contact.phone}` : ''}</p>
     </div>

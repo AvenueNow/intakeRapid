@@ -49,12 +49,7 @@ export async function POST(req: Request) {
 <body style="font-family:system-ui,sans-serif;background:#F0EDF6;margin:0;padding:32px;">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
     <div style="background:#C94BBE;padding:32px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;">
-          <span style="color:#fff;font-size:16px;font-weight:700;">V</span>
-        </div>
-        <span style="color:rgba(255,255,255,0.9);font-size:12px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;">VenueHopper</span>
-      </div>
+      <img src="https://intake-rapid.vercel.app/logo.svg" alt="VenueHopper" width="36" height="36" style="display:block;width:36px;height:36px;margin-bottom:14px;" />
       <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;line-height:1.3;">We&apos;ve got your inquiry!</h1>
       <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px;line-height:1.6;">
         Thanks, ${name}. We&apos;ve received your event details and our team will be in touch with venue options within 48 hours.
@@ -83,6 +78,7 @@ export async function POST(req: Request) {
 <body style="font-family:system-ui,sans-serif;background:#f3f4f6;margin:0;padding:32px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
     <div style="background:#C94BBE;padding:28px 32px;">
+      <img src="https://intake-rapid.vercel.app/logo.svg" alt="VenueHopper" width="36" height="36" style="display:block;width:36px;height:36px;margin-bottom:14px;" />
       <h1 style="color:#fff;margin:0;font-size:20px;font-weight:600;">New Contact Submission</h1>
       <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px;">Submitted via VenueHopper intake form</p>
     </div>
