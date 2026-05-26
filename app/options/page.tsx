@@ -52,7 +52,10 @@ export default function OptionsPage() {
           </a>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <Link href="/confirmation" className="text-sm text-neutral-500 hover:text-neutral-800 transition underline underline-offset-2">
+            ← Back to my summary
+          </Link>
           <Link href="/" className="text-xs text-neutral-400 hover:text-neutral-600 transition underline underline-offset-2">
             Submit another inquiry
           </Link>

@@ -105,6 +105,9 @@ export default function ConfirmationPage() {
     if (raw) {
       try { setSummary(JSON.parse(raw)); } catch { /* ignore */ }
     }
+    if (sessionStorage.getItem('venuehopperUnlocked') === '1') {
+      setUnlocked(true);
+    }
   }, []);
 
   const handleContact = async (e: React.FormEvent) => {
@@ -119,6 +122,7 @@ export default function ConfirmationPage() {
         body: JSON.stringify({ ...contact, summary }),
       });
       if (!res.ok) throw new Error();
+      sessionStorage.setItem('venuehopperUnlocked', '1');
       setUnlocked(true);
     } catch {
       setContactError('Something went wrong. Please try again.');
