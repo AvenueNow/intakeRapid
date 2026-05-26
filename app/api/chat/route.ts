@@ -74,22 +74,7 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse();
 }
 
-type UIMessage = { role: string; content: string | { type: string; text?: string }[] };
-
-function buildTranscriptHtml(messages: UIMessage[]): string {
-  const lines = messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => {
-      const text = Array.isArray(m.content)
-        ? m.content.filter((p) => p.type === 'text').map((p) => p.text ?? '').join(' ')
-        : m.content;
-      const label = m.role === 'user' ? 'User' : 'Assistant';
-      const bg = m.role === 'user' ? '#f9fafb' : '#ffffff';
-      return `<tr><td style="padding:8px 16px;font-weight:600;color:#6b7280;width:90px;background:${bg};border-bottom:1px solid #e5e7eb;font-size:12px;vertical-align:top;">${label}</td><td style="padding:8px 16px;color:#111827;border-bottom:1px solid #e5e7eb;font-size:13px;background:${bg};white-space:pre-wrap;">${text}</td></tr>`;
-    })
-    .join('');
-  return `<table style="width:100%;border-collapse:collapse;""><tbody>${lines}</tbody></table>`;
-}
+type UIMessage = { role: string; content: unknown };
 
 function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
   const rows: [string, string][] = [
@@ -126,7 +111,7 @@ function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
     </table>
     <div style="padding:20px 32px 8px;border-top:1px solid #e5e7eb;">
       <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;">Full Conversation</p>
-      ${buildTranscriptHtml(messages)}
+      <pre style="font-size:12px;color:#374151;white-space:pre-wrap;word-break:break-word;background:#f9fafb;padding:16px;border-radius:8px;overflow:auto;">${JSON.stringify(messages, null, 2)}</pre>
     </div>
   </div>
 </body>
