@@ -38,6 +38,7 @@ export default function Page() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [emailSent, setEmailSent] = useState(false);
   const isLoading = status === 'streaming' || status === 'submitted';
+  const isError = status === 'error';
 
   // Refs so event handlers always read current values without stale closures
   const messagesRef = useRef(messages);
@@ -155,12 +156,15 @@ export default function Page() {
         </div>
 
         <div className="p-4" style={{ borderTop: '1px solid #ede9f4' }}>
+          {isError && (
+            <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
+          )}
           <form onSubmit={handleSubmit} className="flex gap-3 items-center">
             <input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
               disabled={isLoading || emailSent}
               className="flex-1 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: '#F0EDF6', border: 'none' }}
@@ -175,7 +179,7 @@ export default function Page() {
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
             >
-              Send
+              {isLoading ? '…' : 'Send'}
             </button>
           </form>
         </div>
