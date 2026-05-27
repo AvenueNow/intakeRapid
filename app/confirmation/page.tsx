@@ -399,7 +399,7 @@ export default function ConfirmationPage() {
                   {submitting ? 'Submitting…' : 'Unlock My Summary →'}
                 </button>
 
-                <p className="text-xs text-neutral-400 text-center">No spam ever. We&apos;ll be in touch within 48 hours.</p>
+                <p className="text-xs text-neutral-400 text-center">No spam ever. We&apos;ll be in touch within 24 hours.</p>
               </form>
             </div>
           )}

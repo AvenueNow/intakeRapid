@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       <img src="https://intake-rapid.vercel.app/logo.svg" alt="VenueHopper" width="36" height="36" style="display:block;width:36px;height:36px;margin-bottom:14px;" />
       <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:600;line-height:1.3;">We&apos;ve got your inquiry!</h1>
       <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px;line-height:1.6;">
-        Thanks, ${name}. We&apos;ve received your event details and our team will be in touch with venue options within 48 hours.
+        Thanks, ${name}. We&apos;ve received your event details and our team will be in touch with venue options within 24 hours.
       </p>
     </div>
     ${confirmationSummaryRows ? `

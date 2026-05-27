@@ -186,7 +186,7 @@ export default function Page() {
       </div>
 
       <p className="mt-5 text-xs text-neutral-400 text-center">
-        No spam ever. We&apos;ll be in touch within 48 hours.
+        No spam ever. We&apos;ll be in touch within 24 hours.
       </p>
     </div>
   );
