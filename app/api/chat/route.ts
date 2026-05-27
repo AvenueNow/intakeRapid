@@ -69,7 +69,27 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse();
 }
 
-type UIMessage = { role: string; content: unknown };
+type UIMessage = { role: string; content: unknown; parts?: { type: string; text?: string }[] };
+
+function buildTranscriptHtml(messages: UIMessage[]) {
+  const lines = messages
+    .map((m) => {
+      const text = Array.isArray(m.parts)
+        ? m.parts.filter((p) => p.type === 'text').map((p) => p.text ?? '').join('').trim()
+        : '';
+      if (!text) return null;
+      const isUser = m.role === 'user';
+      return `<div style="margin-bottom:12px;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:${isUser ? '#C94BBE' : '#6b7280'};">${isUser ? 'Client' : 'VenueHopper'}</span>
+        <p style="margin:3px 0 0;font-size:13px;color:#111827;line-height:1.6;">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+      </div>`;
+    })
+    .filter(Boolean)
+    .join('');
+  return lines
+    ? `<div style="background:#f9fafb;border-radius:8px;padding:16px 20px;">${lines}</div>`
+    : '<p style="color:#9ca3af;font-size:13px;">No conversation recorded.</p>';
+}
 
 function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
   const rows: [string, string][] = [
@@ -105,9 +125,9 @@ function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${tableRows}</tbody>
     </table>
-    <div style="padding:20px 32px 8px;border-top:1px solid #e5e7eb;">
-      <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;">Full Conversation</p>
-      <pre style="font-size:12px;color:#374151;white-space:pre-wrap;word-break:break-word;background:#f9fafb;padding:16px;border-radius:8px;overflow:auto;">${JSON.stringify(messages, null, 2)}</pre>
+    <div style="padding:20px 32px 24px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0 0 16px;color:#374151;font-size:13px;font-weight:600;">Full Conversation</p>
+      ${buildTranscriptHtml(messages)}
     </div>
   </div>
 </body>
