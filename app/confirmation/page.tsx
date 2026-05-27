@@ -99,6 +99,7 @@ export default function ConfirmationPage() {
   const [saveError, setSaveError] = useState('');
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem('venuehopperSummary');
@@ -109,6 +110,48 @@ export default function ConfirmationPage() {
       setUnlocked(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (unlocked) return;
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const g = (window as any).google;
+      g.accounts.id.initialize({
+        client_id: clientId,
+        callback: (res: { credential: string }) => {
+          const [, payloadB64] = res.credential.split('.');
+          const json = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'));
+          const profile = JSON.parse(json) as { name?: string; email?: string };
+          setContact((c) => ({
+            ...c,
+            name: profile.name ?? c.name,
+            email: profile.email ?? c.email,
+          }));
+        },
+      });
+      if (googleBtnRef.current) {
+        g.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          text: 'continue_with',
+          width: googleBtnRef.current.offsetWidth || 320,
+          logo_alignment: 'center',
+        });
+      }
+    };
+
+    return () => {
+      if (document.head.contains(script)) document.head.removeChild(script);
+    };
+  }, [unlocked]);
 
   const handleContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -306,6 +349,17 @@ export default function ConfirmationPage() {
               </div>
 
               <form onSubmit={handleContact} className="px-6 py-5 flex flex-col gap-4">
+                {/* Google sign-in — only renders if NEXT_PUBLIC_GOOGLE_CLIENT_ID is set */}
+                {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                  <>
+                    <div ref={googleBtnRef} className="w-full flex justify-center" />
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px" style={{ background: '#ede9f4' }} />
+                      <span className="text-xs text-neutral-400">or fill in manually</span>
+                      <div className="flex-1 h-px" style={{ background: '#ede9f4' }} />
+                    </div>
+                  </>
+                )}
                 {([
                   ['name',  'Full Name',      'text', 'Your full name',    true],
                   ['email', 'Email Address',  'email','your@email.com',    true],
