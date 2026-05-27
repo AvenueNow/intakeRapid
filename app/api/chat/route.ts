@@ -92,6 +92,12 @@ function buildTranscriptHtml(messages: UIMessage[]) {
 }
 
 function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
+  const closingMessage: UIMessage = {
+    role: 'assistant',
+    content: '',
+    parts: [{ type: 'text', text: 'Got it. Let me get you some options.' }],
+  };
+  messages = [...messages, closingMessage];
   const rows: [string, string][] = [
     ['Event Type', details.eventType],
     ['Availability', details.availability],
