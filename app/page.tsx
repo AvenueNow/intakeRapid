@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 
 function Logo() {
   return (
-    <div className="flex flex-col items-center gap-2 mb-6">
+    <div className="flex flex-col items-center gap-1.5 mb-3 md:mb-6">
       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.12)' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE"/>
@@ -98,19 +98,19 @@ export default function Page() {
       .join('');
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-12 px-4" style={{ background: '#F0EDF6' }}>
-      <div className="w-full max-w-lg mb-2 text-center">
+    <div className="h-[100dvh] flex flex-col items-center pt-4 pb-2 px-4 md:py-12" style={{ background: '#F0EDF6' }}>
+      <div className="w-full max-w-lg flex-shrink-0 mb-1 text-center">
         <Logo />
-        <h1 className="text-4xl text-neutral-900 mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
+        <h1 className="text-3xl md:text-4xl text-neutral-900 mb-1 md:mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
           Plan your event.
         </h1>
-        <p className="text-neutral-500 text-sm leading-relaxed">
+        <p className="hidden md:block text-neutral-500 text-sm leading-relaxed">
           Tell our assistant what you have in mind. We review every inquiry and&nbsp;will be in touch with options.
         </p>
       </div>
 
-      <div className="w-full max-w-lg flex flex-col bg-white rounded-2xl shadow-md overflow-hidden mt-6">
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[480px]">
+      <div className="w-full max-w-lg flex-1 flex flex-col bg-white rounded-2xl shadow-md overflow-hidden mt-3 md:mt-6 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
           {/* Static welcome message */}
           <div className="flex justify-start">
             <VAvatar />
@@ -155,18 +155,18 @@ export default function Page() {
           <div ref={bottomRef} />
         </div>
 
-        <div className="p-4" style={{ borderTop: '1px solid #ede9f4' }}>
+        <div className="p-3 md:p-4" style={{ borderTop: '1px solid #ede9f4' }}>
           {isError && (
             <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
           )}
-          <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+          <form onSubmit={handleSubmit} className="flex gap-2 md:gap-3 items-center">
             <input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
               disabled={isLoading || emailSent}
-              className="flex-1 rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: '#F0EDF6', border: 'none' }}
               onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
               onBlur={(e) => (e.target.style.boxShadow = 'none')}
@@ -174,7 +174,7 @@ export default function Page() {
             <button
               type="submit"
               disabled={isLoading || !input.trim() || emailSent}
-              className="text-white rounded-xl px-5 py-2.5 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+              className="text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
               style={{ background: '#C94BBE' }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
@@ -185,7 +185,7 @@ export default function Page() {
         </div>
       </div>
 
-      <p className="mt-5 text-xs text-neutral-400 text-center">
+      <p className="flex-shrink-0 mt-2 text-xs text-neutral-400 text-center hidden md:block">
         No spam ever. We&apos;ll be in touch within 24 hours.
       </p>
     </div>

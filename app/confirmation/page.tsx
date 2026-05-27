@@ -33,7 +33,7 @@ const LABELS: [keyof EventSummary, string, boolean][] = [
 
 function Logo() {
   return (
-    <div className="flex flex-col items-center gap-2 mb-8">
+    <div className="flex flex-col items-center gap-1.5 mb-4 md:mb-8">
       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.12)' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE"/>
@@ -222,12 +222,12 @@ export default function ConfirmationPage() {
   const activeSummary = editMode ? draft : summary;
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-12 px-4" style={{ background: '#F0EDF6' }}>
+    <div className="min-h-screen flex flex-col items-center py-6 px-4 md:py-12" style={{ background: '#F0EDF6' }}>
       <Logo />
 
       <div className="w-full max-w-4xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl text-neutral-900 mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
+        <div className="text-center mb-5 md:mb-8">
+          <h1 className="text-3xl md:text-4xl text-neutral-900 mb-1.5 md:mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
             {unlocked ? "You're all set!" : 'Your summary is ready.'}
           </h1>
           <p className="text-neutral-500 text-sm">
@@ -239,8 +239,8 @@ export default function ConfirmationPage() {
 
         <div className={`grid gap-6 ${unlocked ? '' : 'md:grid-cols-2'}`}>
 
-          {/* Event summary card */}
-          <div className="relative bg-white rounded-2xl shadow-md overflow-hidden">
+          {/* Event summary card — shown second on mobile (below form), first on desktop */}
+          <div className={`relative bg-white rounded-2xl shadow-md overflow-hidden${!unlocked ? ' order-2 md:order-1' : ''}`}>
             {/* Lock overlay */}
             {!unlocked && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl"
@@ -340,9 +340,9 @@ export default function ConfirmationPage() {
             )}
           </div>
 
-          {/* Contact form — hidden after unlock */}
+          {/* Contact form — first on mobile, second column on desktop */}
           {!unlocked && (
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden self-start">
+            <div className="bg-white rounded-2xl shadow-md overflow-hidden self-start order-1 md:order-2">
               <div className="px-6 py-4" style={{ borderBottom: '1px solid #ede9f4' }}>
                 <h2 className="text-sm font-semibold text-neutral-700">Your contact info</h2>
                 <p className="text-xs text-neutral-400 mt-0.5">So we know how to reach you with options.</p>
@@ -378,7 +378,7 @@ export default function ConfirmationPage() {
                       onChange={(e) => setContact((c) => ({ ...c, [field]: e.target.value }))}
                       placeholder={placeholder}
                       required={required}
-                      className="rounded-xl px-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition"
+                      className="rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition min-h-[44px]"
                       style={{ background: '#F0EDF6', border: 'none' }}
                       onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
                       onBlur={(e) => (e.target.style.boxShadow = 'none')}
@@ -391,7 +391,7 @@ export default function ConfirmationPage() {
                 <button
                   type="submit"
                   disabled={submitting || !contact.name.trim() || !contact.email.trim()}
-                  className="w-full text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full text-white rounded-xl px-5 py-3.5 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
                   style={{ background: '#C94BBE' }}
                   onMouseEnter={(e) => { if (!submitting) (e.currentTarget.style.background = '#a83a9e'); }}
                   onMouseLeave={(e) => { if (!submitting) (e.currentTarget.style.background = '#C94BBE'); }}
