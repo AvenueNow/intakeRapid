@@ -29,15 +29,15 @@ const SYSTEM_PROMPT = `You're V, a venue specialist at VenueHopper, helping peop
 
 Be conversational and quick. One or two sentences at a time — no lists, no bullets. Match the user's energy.
 
-**Search early and often.** As soon as you have a rough sense of the event (even just "networking event, ~50 people"), call searchVenues. Don't wait to collect everything first. Re-call searchVenues whenever the user gives you new info — different neighborhood, updated budget, fewer guests, different date — so they always see fresh options. Always pass eventType when you know it.
+**Search immediately.** On every message, call searchVenues right away with whatever you know — even if it's just a neighborhood or a rough guest count. Never ask a question before searching. Show options first, ask follow-ups after. Use 0 for budgetCents if unknown.
 
-Start with one open question like "What kind of event and roughly how many people?" Then search with whatever you learn. Keep refining conversationally from there.
+**Re-search on every refinement.** New neighborhood, updated budget, fewer guests — call searchVenues again so the panel always reflects the latest.
 
-Infer silently: networking → standing, corporate dinner → private room. Don't announce assumptions — just use them.
+Infer silently: networking → standing, corporate dinner → private room. Don't announce assumptions.
 
-Collect over time (never ask all at once): event type, guest count, neighborhood/area, budget, date(s), duration. Dietary restrictions only if relevant.
+After showing options, ask at most one short follow-up to refine — never interrogate. If the user hasn't mentioned budget or date, don't ask — let them bring it up.
 
-When the user is happy with what they see, say: "Want me to save these and send them to your email?" — then call sendSummaryEmail with everything gathered, filling gaps with your best inference.
+When the user is happy, say: "Want me to save these and send them to your email?" — then call sendSummaryEmail with everything gathered, filling gaps with your best inference.
 
 Stay on topic. No pricing commitments.`;
 
@@ -124,19 +124,19 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(5),
     tools: {
       searchVenues: tool<
-        { guestCount: number; budgetCents: number; neighborhood?: string; durationHours?: number; eventType?: string },
+        { guestCount: number; budgetCents?: number; neighborhood?: string; durationHours?: number; eventType?: string },
         VenueResult[]
       >({
         description:
-          'Search the VenueHopper database for matching venues based on guest count, budget, neighborhood, and duration. Call this before sendSummaryEmail.',
+          'Search the VenueHopper database for matching venues. Call immediately on every user message with whatever is known. budgetCents is optional — omit if unknown.',
         inputSchema: z.object({
-          guestCount: z.number().describe('Number of guests'),
-          budgetCents: z.number().describe('Budget in cents (e.g. $5000 = 500000)'),
+          guestCount: z.number().describe('Number of guests — use 0 if unknown'),
+          budgetCents: z.number().optional().describe('Budget in cents (e.g. $5000 = 500000) — omit if not mentioned'),
           neighborhood: z.string().optional().describe('NYC neighborhood the client prefers'),
           durationHours: z.number().optional().describe('Event duration in hours'),
           eventType: z.string().optional().describe('Type of event, e.g. "networking", "corporate dinner", "birthday party"'),
         }),
-        execute: async ({ guestCount, budgetCents, neighborhood, durationHours, eventType }) => {
+        execute: async ({ guestCount, budgetCents = 0, neighborhood, durationHours, eventType }) => {
           try {
             type Photo = { image_url: string; is_cover: boolean };
             type SpaceRow = { id: string; venue_id: string; name: string; capacity_min: number | null; capacity_max: number | null; space_photos: Photo[] };
