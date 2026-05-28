@@ -29,13 +29,15 @@ const SYSTEM_PROMPT = `You're V, a venue specialist at VenueHopper, helping peop
 
 Be conversational and quick. One or two sentences at a time — no lists, no bullets. Match the user's energy.
 
-**Search immediately.** On every message, call searchVenues right away with whatever you know — even if it's just a neighborhood or a rough guest count. Never ask a question before searching. Show options first, ask follow-ups after. Use 0 for budgetCents if unknown.
+**Search immediately, then build cards.** On every message:
+1. Call searchVenues with whatever you know (omit budgetCents if unknown)
+2. Immediately call buildVenueCards — pick the 2–4 best matches, write a custom highlight for each that references the user's specific situation, and optionally add a badge ("Best fit", "Under budget", "Cozy vibe", "Outdoor space", etc.)
 
-**Re-search on every refinement.** New neighborhood, updated budget, fewer guests — call searchVenues again so the panel always reflects the latest.
+Re-search and re-build whenever the user gives new info. Never ask a question before searching.
 
 Infer silently: networking → standing, corporate dinner → private room. Don't announce assumptions.
 
-After showing options, ask at most one short follow-up to refine — never interrogate. If the user hasn't mentioned budget or date, don't ask — let them bring it up.
+After showing options, ask at most one short follow-up to refine. Don't proactively ask about budget or date.
 
 When the user is happy, say: "Want me to save these and send them to your email?" — then call sendSummaryEmail with everything gathered, filling gaps with your best inference.
 
@@ -66,6 +68,9 @@ type VenueResult = {
   durationHours: number;
   coverPhotoUrl: string | null;
   matchSummary: string;
+  // Agent-written fields set by buildVenueCards (override matchSummary)
+  highlight?: string;
+  badge?: string;
 };
 
 function buildMatchSummary(
@@ -117,11 +122,15 @@ function buildMatchSummary(
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
+  // Per-request cache: searchVenues stores results here so buildVenueCards
+  // can look up full venue data by name without the agent re-emitting it
+  let latestSearchResults: VenueResult[] = [];
+
   const result = streamText({
     model: anthropic('claude-opus-4-7'),
     system: SYSTEM_PROMPT,
     messages: await convertToModelMessages(messages),
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(10),
     tools: {
       searchVenues: tool<
         { guestCount: number; budgetCents?: number; neighborhood?: string; durationHours?: number; eventType?: string },
@@ -196,11 +205,39 @@ export async function POST(req: Request) {
                 matchSummary: buildMatchSummary(venue, pkg, space, { guestCount, budgetCents, eventType }),
               });
             }
+            latestSearchResults = results;
             return results;
           } catch (err) {
             console.error('searchVenues failed:', err);
             return [];
           }
+        },
+      }),
+
+      buildVenueCards: tool<
+        { cards: Array<{ venueName: string; packageName: string; highlight: string; badge?: string }> },
+        VenueResult[]
+      >({
+        description:
+          'Select and annotate venues to display to the user. Call immediately after searchVenues. Pick the 2–4 best fits, write a custom highlight for each referencing the user\'s specific needs, and optionally add a short badge.',
+        inputSchema: z.object({
+          cards: z.array(z.object({
+            venueName:   z.string().describe('Exact venue name from searchVenues results'),
+            packageName: z.string().describe('Exact package name from searchVenues results'),
+            highlight:   z.string().describe('One sentence tailored to this specific user — reference their event type, guest count, vibe, or budget'),
+            badge:       z.string().optional().describe('Short label: "Best fit", "Under budget", "Intimate setting", "Great for networking", etc.'),
+          })),
+        }),
+        execute: async ({ cards }) => {
+          const enriched: VenueResult[] = [];
+          for (const card of cards) {
+            const venue = latestSearchResults.find(
+              v => v.venueName === card.venueName && v.packageName === card.packageName
+            );
+            if (!venue) continue;
+            enriched.push({ ...venue, highlight: card.highlight, badge: card.badge });
+          }
+          return enriched;
         },
       }),
 

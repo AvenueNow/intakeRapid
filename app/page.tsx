@@ -18,6 +18,9 @@ type VenueResult = {
   durationHours: number;
   coverPhotoUrl: string | null;
   matchSummary: string;
+  // Set by buildVenueCards — agent-written, overrides matchSummary
+  highlight?: string;
+  badge?: string;
 };
 
 // Mock venues used in dev mode (?dev=venues) for visual/e2e testing
@@ -160,15 +163,23 @@ function SidePanelVenueCard({ venue }: { venue: VenueResult }) {
             <p className="font-semibold text-neutral-900 leading-tight">{venue.venueName}</p>
             <p className="text-sm text-neutral-400 mt-0.5 truncate">{venue.packageName}</p>
           </div>
-          <span className="text-xs rounded-full px-2 py-1 shrink-0 font-medium"
-            style={{ background: 'rgba(201,75,190,0.10)', color: '#C94BBE' }}>
-            {venue.neighborhood}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span className="text-xs rounded-full px-2 py-1 font-medium"
+              style={{ background: 'rgba(201,75,190,0.10)', color: '#C94BBE' }}>
+              {venue.neighborhood}
+            </span>
+            {venue.badge && (
+              <span className="text-xs rounded-full px-2 py-1 font-semibold text-white"
+                style={{ background: '#C94BBE' }}>
+                {venue.badge}
+              </span>
+            )}
+          </div>
         </div>
 
-        {venue.matchSummary && (
+        {(venue.highlight || venue.matchSummary) && (
           <p className="text-xs leading-relaxed" style={{ color: '#C94BBE' }}>
-            {venue.matchSummary}
+            {venue.highlight ?? venue.matchSummary}
           </p>
         )}
 
@@ -193,6 +204,14 @@ function SidePanelVenueCard({ venue }: { venue: VenueResult }) {
 }
 
 function getVenueResults(m: UIMessage): VenueResult[] {
+  // buildVenueCards takes precedence — agent-curated with custom copy
+  for (const p of m.parts) {
+    if (p.type === 'tool-buildVenueCards' && p.state === 'output-available') {
+      const results = (p.output as VenueResult[]) ?? [];
+      if (results.length > 0) return results;
+    }
+  }
+  // Fall back to raw searchVenues results
   for (const p of m.parts) {
     if (p.type === 'tool-searchVenues' && p.state === 'output-available') {
       return (p.output as VenueResult[]) ?? [];
