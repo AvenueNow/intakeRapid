@@ -20,6 +20,49 @@ type VenueResult = {
   matchSummary: string;
 };
 
+// Mock venues used in dev mode (?dev=venues) for visual/e2e testing
+const MOCK_VENUES: VenueResult[] = [
+  {
+    venueName: 'The Ginger Man',
+    address: '11 E 36th St, New York, NY',
+    neighborhood: 'Midtown',
+    venueType: 'Bar & Lounge',
+    spaceName: 'Private Room',
+    capacityMax: 80,
+    packageName: 'Happy Hour Package',
+    priceCents: 150000,
+    durationHours: 3,
+    coverPhotoUrl: null,
+    matchSummary: 'Great for a networking crowd · seats your 50 guests comfortably',
+  },
+  {
+    venueName: "Slattery's Midtown Pub",
+    address: '8 E 36th St, New York, NY',
+    neighborhood: 'Midtown East',
+    venueType: 'Pub',
+    spaceName: 'Full Buyout',
+    capacityMax: 120,
+    packageName: 'Cash Bar Package',
+    priceCents: 120000,
+    durationHours: 4,
+    coverPhotoUrl: null,
+    matchSummary: 'Polished corporate setting · well within your budget',
+  },
+  {
+    venueName: 'Turnmill Bar',
+    address: '120 E 27th St, New York, NY',
+    neighborhood: 'Kips Bay',
+    venueType: 'Bar',
+    spaceName: 'The Turnmill',
+    capacityMax: 80,
+    packageName: 'Cash Bar at The Turnmill',
+    priceCents: 0,
+    durationHours: 4,
+    coverPhotoUrl: null,
+    matchSummary: 'A versatile Bar space · up to 80 guests',
+  },
+];
+
 function Logo() {
   return (
     <div className="flex flex-col items-center gap-1.5 mb-3 md:mb-6">
@@ -51,7 +94,7 @@ function PinIcon() {
   );
 }
 
-// Compact inline card — shown in chat on mobile only
+// Compact inline card — shown in chat on mobile only (md:hidden)
 function InlineVenueCard({ venue }: { venue: VenueResult }) {
   const dollars = venue.priceCents
     ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(venue.priceCents / 100)
@@ -185,6 +228,16 @@ export default function Page() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
 
+  // Dev mode: ?dev=venues loads mock data for visual/e2e testing
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('dev') === 'venues') {
+        setLatestVenues(MOCK_VENUES);
+      }
+    }
+  }, []);
+
   // Track latest venue results for the side panel
   useEffect(() => {
     for (const m of [...messages].reverse()) {
@@ -194,7 +247,13 @@ export default function Page() {
         return;
       }
     }
-    setLatestVenues([]);
+    // Only clear if not in dev mock mode
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('dev') !== 'venues') {
+        setLatestVenues([]);
+      }
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -252,126 +311,133 @@ export default function Page() {
         </p>
       </div>
 
-      {/* Stage — expands to show side panel */}
-      <div className="flex-1 flex gap-4 w-full min-h-0 mt-3 md:mt-5 justify-center">
-        {/* Chat panel */}
+      {/* Stage: outer centers via justify-center, inner constrains width */}
+      <div className="flex-1 min-h-0 mt-3 md:mt-5 flex justify-center w-full">
         <div
-          className="flex flex-col bg-white rounded-2xl shadow-md overflow-hidden min-h-0 w-full flex-shrink-0"
+          className="flex gap-4 w-full min-h-0"
+          data-testid="stage"
           style={{
-            maxWidth: showPanel ? '440px' : '512px',
+            maxWidth: showPanel ? '960px' : '512px',
             transition: 'max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
-            {/* Static welcome message */}
-            <div className="flex justify-start">
-              <VAvatar />
-              <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed" style={{ background: '#F0EDF6', color: '#1a1a1a' }}>
-                Hello! Tell me a bit about your event.
-              </div>
-            </div>
-
-            {messages.map((m: UIMessage, i: number) => {
-              const text = getTextContent(m);
-              const isUser = m.role === 'user';
-              const venueResults = isUser ? [] : getVenueResults(m);
-
-              if (!text && venueResults.length === 0) return null;
-
-              return (
-                <div key={i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                  {text && (
-                    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      {!isUser && <VAvatar />}
-                      <div
-                        className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
-                        style={isUser
-                          ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
-                          : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
-                        }
-                      >
-                        <ReactMarkdown>{text}</ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Inline cards — mobile only; desktop uses side panel */}
-                  {venueResults.length > 0 && (
-                    <div className="ml-10 mt-2 flex gap-2.5 overflow-x-auto pb-1 max-w-full md:hidden">
-                      {venueResults.map((v, j) => (
-                        <InlineVenueCard key={j} venue={v} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {isLoading && (
+          {/* Chat panel: flex-1 min-w-0 so it fills remaining space without overflowing */}
+          <div
+            data-testid="chat-panel"
+            className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl shadow-md overflow-hidden min-h-0"
+          >
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+              {/* Static welcome message */}
               <div className="flex justify-start">
                 <VAvatar />
-                <div className="px-4 py-3 rounded-2xl rounded-bl-sm" style={{ background: '#F0EDF6' }}>
-                  <div className="flex gap-1 items-center h-4">
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: '#C94BBE' }} />
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: '#C94BBE' }} />
-                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: '#C94BBE' }} />
-                  </div>
+                <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed" style={{ background: '#F0EDF6', color: '#1a1a1a' }}>
+                  Hello! Tell me a bit about your event.
                 </div>
               </div>
-            )}
 
-            <div ref={bottomRef} />
-          </div>
+              {messages.map((m: UIMessage, i: number) => {
+                const text = getTextContent(m);
+                const isUser = m.role === 'user';
+                const venueResults = isUser ? [] : getVenueResults(m);
 
-          <div className="p-3 md:p-4 flex-shrink-0" style={{ borderTop: '1px solid #ede9f4' }}>
-            {isError && (
-              <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
-            )}
-            <form onSubmit={handleSubmit} className="flex gap-2 md:gap-3 items-center">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
-                disabled={isLoading || emailSent}
-                className="flex-1 rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: '#F0EDF6', border: 'none' }}
-                onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
-                onBlur={(e) => (e.target.style.boxShadow = 'none')}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim() || emailSent}
-                className="text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
-                style={{ background: '#C94BBE' }}
-                onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
-                onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
-              >
-                {isLoading ? '…' : 'Send'}
-              </button>
-            </form>
-          </div>
-        </div>
+                if (!text && venueResults.length === 0) return null;
 
-        {/* Side panel — desktop only, conditionally rendered when venues are available */}
-        {showPanel && (
-          <div
-            className="hidden md:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
-            style={{ width: '480px', animation: 'venueSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
-          >
-            <div className="flex-shrink-0 px-1">
-              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
-                Venue options
-              </p>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
-              </p>
+                return (
+                  <div key={i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                    {text && (
+                      <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+                        {!isUser && <VAvatar />}
+                        <div
+                          className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
+                          style={isUser
+                            ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
+                            : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
+                          }
+                        >
+                          <ReactMarkdown>{text}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline cards — mobile only; lg+ uses side panel */}
+                    {venueResults.length > 0 && (
+                      <div className="ml-10 mt-2 flex gap-2.5 overflow-x-auto pb-1 max-w-full lg:hidden">
+                        {venueResults.map((v, j) => (
+                          <InlineVenueCard key={j} venue={v} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {isLoading && (
+                <div className="flex justify-start">
+                  <VAvatar />
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm" style={{ background: '#F0EDF6' }}>
+                    <div className="flex gap-1 items-center h-4">
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: '#C94BBE' }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: '#C94BBE' }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: '#C94BBE' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={bottomRef} />
             </div>
-            {latestVenues.map((v, i) => (
-              <SidePanelVenueCard key={i} venue={v} />
-            ))}
+
+            <div className="p-3 md:p-4 flex-shrink-0" style={{ borderTop: '1px solid #ede9f4' }}>
+              {isError && (
+                <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
+              )}
+              <form onSubmit={handleSubmit} className="flex gap-2 md:gap-3 items-center">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
+                  disabled={isLoading || emailSent}
+                  className="flex-1 rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: '#F0EDF6', border: 'none' }}
+                  onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
+                  onBlur={(e) => (e.target.style.boxShadow = 'none')}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim() || emailSent}
+                  className="text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
+                  style={{ background: '#C94BBE' }}
+                  onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
+                  onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
+                >
+                  {isLoading ? '…' : 'Send'}
+                </button>
+              </form>
+            </div>
           </div>
-        )}
+
+          {/* Side panel: lg only (1024px+) so it never causes overflow on smaller screens */}
+          {showPanel && (
+            <div
+              data-testid="venue-panel"
+              className="hidden lg:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
+              style={{ width: '460px', animation: 'venueSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            >
+              <div className="flex-shrink-0 px-1">
+                <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
+                  Venue options
+                </p>
+                <p className="text-sm text-neutral-500 mt-0.5">
+                  {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
+                </p>
+              </div>
+              {latestVenues.map((v, i) => (
+                <SidePanelVenueCard key={i} venue={v} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <p className="flex-shrink-0 mt-2 text-xs text-neutral-400 text-center hidden md:block">
