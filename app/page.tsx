@@ -253,15 +253,15 @@ export default function Page() {
       </div>
 
       {/* Stage — expands to show side panel */}
-      <div
-        className="flex-1 flex gap-4 w-full min-h-0 mt-3 md:mt-5"
-        style={{
-          maxWidth: showPanel ? '960px' : '512px',
-          transition: 'max-width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
+      <div className="flex-1 flex gap-4 w-full min-h-0 mt-3 md:mt-5 justify-center">
         {/* Chat panel */}
-        <div className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl shadow-md overflow-hidden" style={{ minWidth: 0, maxWidth: showPanel ? '440px' : undefined }}>
+        <div
+          className="flex flex-col bg-white rounded-2xl shadow-md overflow-hidden min-h-0 w-full flex-shrink-0"
+          style={{
+            maxWidth: showPanel ? '440px' : '512px',
+            transition: 'max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
             {/* Static welcome message */}
             <div className="flex justify-start">
@@ -353,33 +353,25 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Side panel — desktop only, slides in when venues are available */}
-        <div
-          className="hidden md:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
-          style={{
-            width: '480px',
-            opacity: showPanel ? 1 : 0,
-            transform: showPanel ? 'translateX(0)' : 'translateX(20px)',
-            transition: 'opacity 0.35s ease 0.1s, transform 0.35s ease 0.1s',
-            pointerEvents: showPanel ? 'auto' : 'none',
-          }}
-        >
-          {showPanel && (
-            <>
-              <div className="flex-shrink-0 px-1">
-                <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
-                  Venue options
-                </p>
-                <p className="text-sm text-neutral-500 mt-0.5">
-                  {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
-                </p>
-              </div>
-              {latestVenues.map((v, i) => (
-                <SidePanelVenueCard key={i} venue={v} />
-              ))}
-            </>
-          )}
-        </div>
+        {/* Side panel — desktop only, conditionally rendered when venues are available */}
+        {showPanel && (
+          <div
+            className="hidden md:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
+            style={{ width: '480px', animation: 'venueSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          >
+            <div className="flex-shrink-0 px-1">
+              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
+                Venue options
+              </p>
+              <p className="text-sm text-neutral-500 mt-0.5">
+                {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
+              </p>
+            </div>
+            {latestVenues.map((v, i) => (
+              <SidePanelVenueCard key={i} venue={v} />
+            ))}
+          </div>
+        )}
       </div>
 
       <p className="flex-shrink-0 mt-2 text-xs text-neutral-400 text-center hidden md:block">
