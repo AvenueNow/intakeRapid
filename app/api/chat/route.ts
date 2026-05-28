@@ -1,9 +1,23 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { convertToModelMessages, streamText, tool } from 'ai';
+import { convertToModelMessages, stepCountIs, streamText, tool } from 'ai';
 import { Resend } from 'resend';
 import { z } from 'zod';
 
 export const maxDuration = 60;
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+
+async function supabaseGet(path: string) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  if (!res.ok) throw new Error(`Supabase error ${res.status}`);
+  return res.json();
+}
 
 const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -19,7 +33,7 @@ Infer what you can from context and just move on. If someone says networking eve
 
 You need: date(s), neighborhood or part of the city, guest count, budget, and how long. Event type and what's happening usually come through naturally. Dietary needs only matter if context suggests it (large group, specific cuisine, etc.) — otherwise skip it.
 
-Once you have enough, ask exactly: "Great, I have what I need to get a few options for you. Anything else I'm missing?" — then reply with "Got it. Let me get you some options." and call sendSummaryEmail in the same response.
+Once you have enough, ask exactly: "Great, I have what I need to get a few options for you. Anything else I'm missing?" — then reply with "Got it. Let me get you some options." and call searchVenues, then sendSummaryEmail in the same response.
 
 Fill in the summary using whatever you've inferred, not just what was explicitly stated. Stay on topic. No pricing commitments.`;
 
@@ -36,6 +50,18 @@ const summarySchema = z.object({
 
 type SummaryDetails = z.infer<typeof summarySchema>;
 
+type VenueResult = {
+  venueName: string;
+  address: string;
+  neighborhood: string;
+  venueType: string;
+  spaceName: string;
+  capacityMax: number | null;
+  packageName: string;
+  priceCents: number;
+  durationHours: number;
+};
+
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
@@ -43,18 +69,97 @@ export async function POST(req: Request) {
     model: anthropic('claude-opus-4-7'),
     system: SYSTEM_PROMPT,
     messages: await convertToModelMessages(messages),
+    stopWhen: stepCountIs(5),
     tools: {
+      searchVenues: tool<
+        { guestCount: number; budgetCents: number; neighborhood?: string; durationHours?: number },
+        VenueResult[]
+      >({
+        description:
+          'Search the VenueHopper database for matching venues based on guest count, budget, neighborhood, and duration. Call this before sendSummaryEmail.',
+        inputSchema: z.object({
+          guestCount: z.number().describe('Number of guests'),
+          budgetCents: z.number().describe('Budget in cents (e.g. $5000 = 500000)'),
+          neighborhood: z.string().optional().describe('NYC neighborhood the client prefers'),
+          durationHours: z.number().optional().describe('Event duration in hours'),
+        }),
+        execute: async ({ guestCount, budgetCents, neighborhood, durationHours }) => {
+          try {
+            let spacesQuery = `spaces?is_active=eq.true&select=id,venue_id,name,capacity_min,capacity_max`;
+            if (guestCount) {
+              spacesQuery += `&capacity_max=gte.${guestCount}`;
+            }
+
+            const spaces: { id: string; venue_id: string; name: string; capacity_min: number | null; capacity_max: number | null }[] =
+              await supabaseGet(spacesQuery);
+
+            if (!spaces.length) return [];
+
+            const venueIds = [...new Set(spaces.map((s) => s.venue_id))];
+            let venuesQuery = `venues?is_active=eq.true&select=id,name,neighborhood,venue_type,address&id=in.(${venueIds.join(',')})`;
+            if (neighborhood) {
+              venuesQuery += `&neighborhood=ilike.*${encodeURIComponent(neighborhood)}*`;
+            }
+            const venues: { id: string; name: string; neighborhood: string | null; venue_type: string; address: string }[] =
+              await supabaseGet(venuesQuery);
+
+            if (!venues.length) return [];
+
+            const matchingVenueIds = venues.map((v) => v.id);
+            let pkgQuery = `packages?is_active=eq.true&select=venue_id,name,discount_price,original_price,duration_hours&venue_id=in.(${matchingVenueIds.join(',')})`;
+            if (budgetCents > 0) {
+              pkgQuery += `&discount_price=lte.${budgetCents}`;
+            }
+            if (durationHours) {
+              pkgQuery += `&duration_hours=gte.${durationHours}`;
+            }
+            const packages: { venue_id: string; name: string; discount_price: number | null; original_price: number | null; duration_hours: number }[] =
+              await supabaseGet(pkgQuery);
+
+            const venueMap = new Map(venues.map((v) => [v.id, v]));
+            const spaceMap = new Map<string, typeof spaces[0][]>();
+            for (const s of spaces) {
+              if (!spaceMap.has(s.venue_id)) spaceMap.set(s.venue_id, []);
+              spaceMap.get(s.venue_id)!.push(s);
+            }
+
+            const results: VenueResult[] = [];
+            for (const pkg of packages.slice(0, 5)) {
+              const venue = venueMap.get(pkg.venue_id);
+              if (!venue) continue;
+              const space = spaceMap.get(pkg.venue_id)?.[0];
+              results.push({
+                venueName: venue.name,
+                address: venue.address,
+                neighborhood: venue.neighborhood ?? '',
+                venueType: venue.venue_type,
+                spaceName: space?.name ?? '',
+                capacityMax: space?.capacity_max ?? null,
+                packageName: pkg.name,
+                priceCents: pkg.discount_price ?? pkg.original_price ?? 0,
+                durationHours: pkg.duration_hours,
+              });
+            }
+            return results;
+          } catch (err) {
+            console.error('searchVenues failed:', err);
+            return [];
+          }
+        },
+      }),
+
       sendSummaryEmail: tool<SummaryDetails, { success: boolean }>({
         description:
-          'Send a summary email with all collected event details. Call this once you have gathered all required information.',
+          'Send a summary email with all collected event details. Call this after searchVenues.',
         inputSchema: summarySchema,
         execute: async (details: SummaryDetails) => {
           try {
+            const venueResults = extractVenueResults(messages);
             await resend.emails.send({
               from: 'Intake Form <no-reply@venuehopper.com>',
               to: 'events@venuehopper.com',
               subject: `New Event Inquiry — ${details.eventType}`,
-              html: buildEmailHtml(details, messages),
+              html: buildEmailHtml(details, messages, venueResults),
             });
             return { success: true };
           } catch (err) {
@@ -69,7 +174,19 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse();
 }
 
-type UIMessage = { role: string; content: unknown; parts?: { type: string; text?: string }[] };
+type UIMessage = { role: string; content: unknown; parts?: { type: string; text?: string; toolName?: string; output?: unknown }[] };
+
+function extractVenueResults(messages: UIMessage[]): VenueResult[] {
+  for (const msg of [...messages].reverse()) {
+    if (!Array.isArray(msg.parts)) continue;
+    for (const part of msg.parts) {
+      if (part.toolName === 'searchVenues' && Array.isArray(part.output)) {
+        return part.output as VenueResult[];
+      }
+    }
+  }
+  return [];
+}
 
 function buildTranscriptHtml(messages: UIMessage[]) {
   const lines = messages
@@ -91,7 +208,31 @@ function buildTranscriptHtml(messages: UIMessage[]) {
     : '<p style="color:#9ca3af;font-size:13px;">No conversation recorded.</p>';
 }
 
-function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
+function buildVenueResultsHtml(venues: VenueResult[]): string {
+  if (!venues.length) return '';
+  const cards = venues
+    .map(
+      (v) => `
+      <tr>
+        <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;">
+          <div style="font-weight:600;color:#111827;font-size:13px;">${v.venueName}</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px;">${v.neighborhood} · ${v.venueType}</div>
+          <div style="font-size:12px;color:#6b7280;">${v.address}</div>
+          <div style="font-size:12px;color:#374151;margin-top:4px;">${v.packageName} · ${v.durationHours}h · $${(v.priceCents / 100).toLocaleString()}${v.capacityMax ? ` · up to ${v.capacityMax} guests` : ''}</div>
+        </td>
+      </tr>`
+    )
+    .join('');
+  return `
+    <div style="padding:20px 32px 0;border-top:1px solid #e5e7eb;">
+      <p style="margin:0 0 12px;color:#374151;font-size:13px;font-weight:600;">Matched Venues (${venues.length})</p>
+      <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;overflow:hidden;">
+        <tbody>${cards}</tbody>
+      </table>
+    </div>`;
+}
+
+function buildEmailHtml(details: SummaryDetails, messages: UIMessage[], venueResults: VenueResult[] = []) {
   const closingMessage: UIMessage = {
     role: 'assistant',
     content: '',
@@ -131,6 +272,7 @@ function buildEmailHtml(details: SummaryDetails, messages: UIMessage[]) {
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${tableRows}</tbody>
     </table>
+    ${buildVenueResultsHtml(venueResults)}
     <div style="padding:20px 32px 24px;border-top:1px solid #e5e7eb;">
       <p style="margin:0 0 16px;color:#374151;font-size:13px;font-weight:600;">Full Conversation</p>
       ${buildTranscriptHtml(messages)}
