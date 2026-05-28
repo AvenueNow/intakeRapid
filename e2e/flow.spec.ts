@@ -141,6 +141,63 @@ test('chat: venue panel cards show correct content', async ({ page }) => {
   await screenshot(page, '06-venue-panel-content');
 });
 
+// ── buildVenueCards path ─────────────────────────────────────────────────────
+
+test('chat: buildVenueCards — badge pill renders on cards', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/?dev=cards');
+  await page.waitForTimeout(300);
+
+  // Both mock cards have badges
+  await expect(page.locator('text=Best fit').first()).toBeVisible();
+  await expect(page.locator('text=Under budget').first()).toBeVisible();
+
+  await screenshot(page, '06b-buildVenueCards-badges');
+});
+
+test('chat: buildVenueCards — highlight text overrides matchSummary', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/?dev=cards');
+  await page.waitForTimeout(300);
+
+  // highlight text should be shown instead of raw matchSummary
+  await expect(page.locator('text=Private room fits your 50 people exactly').first()).toBeVisible();
+  await expect(page.locator('text=Full buyout gives you the whole pub').first()).toBeVisible();
+
+  // raw matchSummary strings should NOT appear (overridden by highlight)
+  await expect(page.locator('text=Great for a networking crowd')).not.toBeVisible();
+  await expect(page.locator('text=Polished corporate setting')).not.toBeVisible();
+
+  await screenshot(page, '06c-buildVenueCards-highlight');
+});
+
+test('chat: buildVenueCards — panel shows 2 cards (filtered vs 3 raw)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/?dev=cards');
+  await page.waitForTimeout(300);
+
+  // MOCK_CARDS has 2 entries (agent curated), MOCK_VENUES has 3
+  await expect(page.locator('text=2 spaces matched your event')).toBeVisible();
+
+  // Turnmill (3rd raw venue) should NOT appear — not picked by agent
+  await expect(page.locator('text=Turnmill Bar')).not.toBeVisible();
+
+  await screenshot(page, '06d-buildVenueCards-count');
+});
+
+test('chat: buildVenueCards — neighborhood pill still renders alongside badge', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/?dev=cards');
+  await page.waitForTimeout(300);
+
+  // Neighborhood pill
+  await expect(page.locator('text=Midtown').first()).toBeVisible();
+  // Badge co-exists with neighborhood pill
+  await expect(page.locator('text=Best fit').first()).toBeVisible();
+
+  await screenshot(page, '06e-buildVenueCards-neighborhood-badge');
+});
+
 // ── Confirmation page ────────────────────────────────────────────────────────
 
 test('confirmation page: locked state shows blurred summary + contact form', async ({ page }) => {

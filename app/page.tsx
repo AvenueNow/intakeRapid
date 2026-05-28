@@ -23,7 +23,7 @@ type VenueResult = {
   badge?: string;
 };
 
-// Mock venues used in dev mode (?dev=venues) for visual/e2e testing
+// Mock venues for ?dev=venues — raw searchVenues output (no agent copy)
 const MOCK_VENUES: VenueResult[] = [
   {
     venueName: 'The Ginger Man',
@@ -63,6 +63,40 @@ const MOCK_VENUES: VenueResult[] = [
     durationHours: 4,
     coverPhotoUrl: null,
     matchSummary: 'A versatile Bar space · up to 80 guests',
+  },
+];
+
+// Mock venues for ?dev=cards — simulates buildVenueCards output with agent-written copy
+const MOCK_CARDS: VenueResult[] = [
+  {
+    venueName: 'The Ginger Man',
+    address: '11 E 36th St, New York, NY',
+    neighborhood: 'Midtown',
+    venueType: 'Bar & Lounge',
+    spaceName: 'Private Room',
+    capacityMax: 80,
+    packageName: 'Happy Hour Package',
+    priceCents: 150000,
+    durationHours: 3,
+    coverPhotoUrl: null,
+    matchSummary: 'Great for a networking crowd · seats your 50 guests comfortably',
+    highlight: 'Private room fits your 50 people exactly — and their happy hour package keeps the bar tab manageable for a casual networking vibe.',
+    badge: 'Best fit',
+  },
+  {
+    venueName: "Slattery's Midtown Pub",
+    address: '8 E 36th St, New York, NY',
+    neighborhood: 'Midtown East',
+    venueType: 'Pub',
+    spaceName: 'Full Buyout',
+    capacityMax: 120,
+    packageName: 'Cash Bar Package',
+    priceCents: 120000,
+    durationHours: 4,
+    coverPhotoUrl: null,
+    matchSummary: 'Polished corporate setting · well within your budget',
+    highlight: 'Full buyout gives you the whole pub — great if you want a relaxed, no-pressure mingling setup with a classic NYC pub feel.',
+    badge: 'Under budget',
   },
 ];
 
@@ -247,13 +281,13 @@ export default function Page() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
 
-  // Dev mode: ?dev=venues loads mock data for visual/e2e testing
+  // Dev mode: ?dev=venues / ?dev=cards loads mock data for visual/e2e testing
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('dev') === 'venues') {
-        setLatestVenues(MOCK_VENUES);
-      }
+      const dev = params.get('dev');
+      if (dev === 'venues') setLatestVenues(MOCK_VENUES);
+      else if (dev === 'cards') setLatestVenues(MOCK_CARDS);
     }
   }, []);
 
@@ -269,7 +303,8 @@ export default function Page() {
     // Only clear if not in dev mock mode
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('dev') !== 'venues') {
+      const dev = params.get('dev');
+      if (dev !== 'venues' && dev !== 'cards') {
         setLatestVenues([]);
       }
     }
