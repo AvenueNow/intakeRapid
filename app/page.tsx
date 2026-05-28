@@ -145,7 +145,7 @@ function SidePanelVenueCard({ venue }: { venue: VenueResult }) {
     : null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col flex-shrink-0">
       {venue.coverPhotoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={venue.coverPhotoUrl} alt={venue.venueName} className="h-40 w-full object-cover" />
@@ -421,10 +421,11 @@ export default function Page() {
           {showPanel && (
             <div
               data-testid="venue-panel"
-              className="hidden lg:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
+              className="hidden lg:flex flex-col flex-shrink-0 min-h-0"
               style={{ width: '460px', animation: 'venueSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
             >
-              <div className="flex-shrink-0 px-1">
+              {/* Fixed header */}
+              <div className="flex-shrink-0 px-1 pb-3">
                 <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
                   Venue options
                 </p>
@@ -432,9 +433,12 @@ export default function Page() {
                   {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
                 </p>
               </div>
-              {latestVenues.map((v, i) => (
-                <SidePanelVenueCard key={i} venue={v} />
-              ))}
+              {/* Scrollable cards */}
+              <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-3 pb-2">
+                {latestVenues.map((v, i) => (
+                  <SidePanelVenueCard key={i} venue={v} />
+                ))}
+              </div>
             </div>
           )}
         </div>
