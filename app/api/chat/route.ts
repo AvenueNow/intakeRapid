@@ -29,7 +29,7 @@ const SYSTEM_PROMPT = `You're V, a venue specialist at VenueHopper, helping peop
 
 Be conversational and quick. One or two sentences at a time — no lists, no bullets. Match the user's energy.
 
-**Search early and often.** As soon as you have a rough sense of the event (even just "networking event, ~50 people"), call searchVenues. Don't wait to collect everything first. Re-call searchVenues whenever the user gives you new info — different neighborhood, updated budget, fewer guests, different date — so they always see fresh options.
+**Search early and often.** As soon as you have a rough sense of the event (even just "networking event, ~50 people"), call searchVenues. Don't wait to collect everything first. Re-call searchVenues whenever the user gives you new info — different neighborhood, updated budget, fewer guests, different date — so they always see fresh options. Always pass eventType when you know it.
 
 Start with one open question like "What kind of event and roughly how many people?" Then search with whatever you learn. Keep refining conversationally from there.
 
@@ -65,7 +65,54 @@ type VenueResult = {
   priceCents: number;
   durationHours: number;
   coverPhotoUrl: string | null;
+  matchSummary: string;
 };
+
+function buildMatchSummary(
+  venue: { neighborhood: string | null; venue_type: string },
+  pkg: { discount_price: number | null; original_price: number | null; duration_hours: number },
+  space: { capacity_max: number | null } | undefined,
+  params: { guestCount: number; budgetCents: number; eventType?: string }
+): string {
+  const { guestCount, budgetCents, eventType } = params;
+  const price = pkg.discount_price ?? pkg.original_price ?? 0;
+
+  const et = (eventType ?? '').toLowerCase();
+  let phrase1 = '';
+  if (et.includes('network') || et.includes('happy hour') || et.includes('mixer') || et.includes('cocktail')) {
+    phrase1 = 'Great for a casual mix-and-mingle';
+  } else if (et.includes('dinner') || et.includes('dining')) {
+    phrase1 = 'Ideal for a sit-down dinner';
+  } else if (et.includes('birthday') || et.includes('celebration') || et.includes('party')) {
+    phrase1 = 'Perfect for a private celebration';
+  } else if (et.includes('corporate') || et.includes('conference') || et.includes('meeting') || et.includes('workshop') || et.includes('offsite')) {
+    phrase1 = 'Polished corporate setting';
+  } else if (et.includes('wedding') || et.includes('reception')) {
+    phrase1 = 'Stunning event space';
+  } else if (eventType) {
+    phrase1 = `Solid fit for your ${eventType}`;
+  } else {
+    phrase1 = `A versatile ${venue.venue_type} space`;
+  }
+
+  const cap = space?.capacity_max ?? null;
+  let phrase2 = '';
+  if (cap && guestCount > 0) {
+    if (cap >= guestCount * 1.5) {
+      phrase2 = `spacious — holds up to ${cap}`;
+    } else if (cap >= guestCount) {
+      phrase2 = `seats your ${guestCount} comfortably`;
+    }
+  } else if (cap) {
+    phrase2 = `up to ${cap} guests`;
+  }
+
+  if (budgetCents > 0 && price > 0 && price <= budgetCents * 0.75) {
+    phrase2 = phrase2 ? `${phrase2} · well within budget` : 'well within your budget';
+  }
+
+  return phrase2 ? `${phrase1} · ${phrase2}` : phrase1;
+}
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
@@ -77,7 +124,7 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(5),
     tools: {
       searchVenues: tool<
-        { guestCount: number; budgetCents: number; neighborhood?: string; durationHours?: number },
+        { guestCount: number; budgetCents: number; neighborhood?: string; durationHours?: number; eventType?: string },
         VenueResult[]
       >({
         description:
@@ -87,8 +134,9 @@ export async function POST(req: Request) {
           budgetCents: z.number().describe('Budget in cents (e.g. $5000 = 500000)'),
           neighborhood: z.string().optional().describe('NYC neighborhood the client prefers'),
           durationHours: z.number().optional().describe('Event duration in hours'),
+          eventType: z.string().optional().describe('Type of event, e.g. "networking", "corporate dinner", "birthday party"'),
         }),
-        execute: async ({ guestCount, budgetCents, neighborhood, durationHours }) => {
+        execute: async ({ guestCount, budgetCents, neighborhood, durationHours, eventType }) => {
           try {
             type Photo = { image_url: string; is_cover: boolean };
             type SpaceRow = { id: string; venue_id: string; name: string; capacity_min: number | null; capacity_max: number | null; space_photos: Photo[] };
@@ -145,6 +193,7 @@ export async function POST(req: Request) {
                 priceCents: pkg.discount_price ?? pkg.original_price ?? 0,
                 durationHours: pkg.duration_hours,
                 coverPhotoUrl,
+                matchSummary: buildMatchSummary(venue, pkg, space, { guestCount, budgetCents, eventType }),
               });
             }
             return results;

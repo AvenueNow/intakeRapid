@@ -17,6 +17,7 @@ type VenueResult = {
   priceCents: number;
   durationHours: number;
   coverPhotoUrl: string | null;
+  matchSummary: string;
 };
 
 function Logo() {
@@ -42,6 +43,15 @@ function VAvatar() {
   );
 }
 
+function PinIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE" opacity="0.35"/>
+    </svg>
+  );
+}
+
+// Compact inline card — shown in chat on mobile only
 function InlineVenueCard({ venue }: { venue: VenueResult }) {
   const dollars = venue.priceCents
     ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(venue.priceCents / 100)
@@ -54,9 +64,7 @@ function InlineVenueCard({ venue }: { venue: VenueResult }) {
         <img src={venue.coverPhotoUrl} alt={venue.venueName} className="h-24 w-full object-cover" />
       ) : (
         <div className="h-24 flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.07)' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE" opacity="0.4"/>
-          </svg>
+          <PinIcon />
         </div>
       )}
       <div className="p-2.5 flex flex-col gap-1 flex-1">
@@ -87,6 +95,60 @@ function InlineVenueCard({ venue }: { venue: VenueResult }) {
   );
 }
 
+// Larger card for the side panel on desktop
+function SidePanelVenueCard({ venue }: { venue: VenueResult }) {
+  const dollars = venue.priceCents
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(venue.priceCents / 100)
+    : null;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      {venue.coverPhotoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={venue.coverPhotoUrl} alt={venue.venueName} className="h-40 w-full object-cover" />
+      ) : (
+        <div className="h-40 flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.07)' }}>
+          <PinIcon />
+        </div>
+      )}
+      <div className="p-4 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold text-neutral-900 leading-tight">{venue.venueName}</p>
+            <p className="text-sm text-neutral-400 mt-0.5 truncate">{venue.packageName}</p>
+          </div>
+          <span className="text-xs rounded-full px-2 py-1 shrink-0 font-medium"
+            style={{ background: 'rgba(201,75,190,0.10)', color: '#C94BBE' }}>
+            {venue.neighborhood}
+          </span>
+        </div>
+
+        {venue.matchSummary && (
+          <p className="text-xs leading-relaxed" style={{ color: '#C94BBE' }}>
+            {venue.matchSummary}
+          </p>
+        )}
+
+        <div className="flex items-center gap-3 text-sm text-neutral-500 flex-wrap">
+          {dollars && <span className="font-semibold text-neutral-900">{dollars}</span>}
+          {venue.capacityMax && <span>≤{venue.capacityMax} guests</span>}
+          <span>{venue.durationHours}h</span>
+        </div>
+
+        <a
+          href={`mailto:events@venuehopper.com?subject=Interested in ${encodeURIComponent(venue.venueName)} — ${encodeURIComponent(venue.packageName)}`}
+          className="mt-1 block text-center text-sm font-semibold py-2.5 rounded-xl text-white transition"
+          style={{ background: '#C94BBE' }}
+          onMouseOver={e => (e.currentTarget.style.background = '#a83a9e')}
+          onMouseOut={e  => (e.currentTarget.style.background = '#C94BBE')}
+        >
+          Inquire →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function getVenueResults(m: UIMessage): VenueResult[] {
   for (const p of m.parts) {
     if (p.type === 'tool-searchVenues' && p.state === 'output-available') {
@@ -101,11 +163,13 @@ export default function Page() {
   const router = useRouter();
 
   const [input, setInput] = useState('');
+  const [latestVenues, setLatestVenues] = useState<VenueResult[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [emailSent, setEmailSent] = useState(false);
   const isLoading = status === 'streaming' || status === 'submitted';
   const isError = status === 'error';
+  const showPanel = latestVenues.length > 0;
 
   const messagesRef = useRef(messages);
   const emailSentRef = useRef(emailSent);
@@ -120,6 +184,18 @@ export default function Page() {
   useEffect(() => {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
+
+  // Track latest venue results for the side panel
+  useEffect(() => {
+    for (const m of [...messages].reverse()) {
+      const results = getVenueResults(m);
+      if (results.length > 0) {
+        setLatestVenues(results);
+        return;
+      }
+    }
+    setLatestVenues([]);
+  }, [messages]);
 
   useEffect(() => {
     for (const m of messages) {
@@ -164,7 +240,8 @@ export default function Page() {
       .join('');
 
   return (
-    <div className="h-[100dvh] flex flex-col items-center pt-4 pb-2 px-4 md:py-12" style={{ background: '#F0EDF6' }}>
+    <div className="h-[100dvh] flex flex-col items-center pt-4 pb-2 px-4 md:py-8 overflow-hidden" style={{ background: '#F0EDF6' }}>
+      {/* Header — always centered */}
       <div className="w-full max-w-lg flex-shrink-0 mb-1 text-center">
         <Logo />
         <h1 className="text-3xl md:text-4xl text-neutral-900 mb-1 md:mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
@@ -175,94 +252,133 @@ export default function Page() {
         </p>
       </div>
 
-      <div className="w-full max-w-lg flex-1 flex flex-col bg-white rounded-2xl shadow-md overflow-hidden mt-3 md:mt-6 min-h-0">
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-          {/* Static welcome message */}
-          <div className="flex justify-start">
-            <VAvatar />
-            <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed" style={{ background: '#F0EDF6', color: '#1a1a1a' }}>
-              Hello! Tell me a bit about your event.
-            </div>
-          </div>
-
-          {messages.map((m: UIMessage, i: number) => {
-            const text = getTextContent(m);
-            const isUser = m.role === 'user';
-            const venueResults = isUser ? [] : getVenueResults(m);
-
-            if (!text && venueResults.length === 0) return null;
-
-            return (
-              <div key={i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                {text && (
-                  <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
-                    {!isUser && <VAvatar />}
-                    <div
-                      className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
-                      style={isUser
-                        ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
-                        : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
-                      }
-                    >
-                      <ReactMarkdown>{text}</ReactMarkdown>
-                    </div>
-                  </div>
-                )}
-
-                {venueResults.length > 0 && (
-                  <div className="ml-10 mt-2 flex gap-2.5 overflow-x-auto pb-1 max-w-full">
-                    {venueResults.map((v, j) => (
-                      <InlineVenueCard key={j} venue={v} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {isLoading && (
+      {/* Stage — expands to show side panel */}
+      <div
+        className="flex-1 flex gap-4 w-full min-h-0 mt-3 md:mt-5"
+        style={{
+          maxWidth: showPanel ? '960px' : '512px',
+          transition: 'max-width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {/* Chat panel */}
+        <div className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl shadow-md overflow-hidden" style={{ minWidth: 0, maxWidth: showPanel ? '440px' : undefined }}>
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+            {/* Static welcome message */}
             <div className="flex justify-start">
               <VAvatar />
-              <div className="px-4 py-3 rounded-2xl rounded-bl-sm" style={{ background: '#F0EDF6' }}>
-                <div className="flex gap-1 items-center h-4">
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: '#C94BBE' }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: '#C94BBE' }} />
-                  <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: '#C94BBE' }} />
-                </div>
+              <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed" style={{ background: '#F0EDF6', color: '#1a1a1a' }}>
+                Hello! Tell me a bit about your event.
               </div>
             </div>
-          )}
 
-          <div ref={bottomRef} />
+            {messages.map((m: UIMessage, i: number) => {
+              const text = getTextContent(m);
+              const isUser = m.role === 'user';
+              const venueResults = isUser ? [] : getVenueResults(m);
+
+              if (!text && venueResults.length === 0) return null;
+
+              return (
+                <div key={i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                  {text && (
+                    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+                      {!isUser && <VAvatar />}
+                      <div
+                        className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
+                        style={isUser
+                          ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
+                          : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
+                        }
+                      >
+                        <ReactMarkdown>{text}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline cards — mobile only; desktop uses side panel */}
+                  {venueResults.length > 0 && (
+                    <div className="ml-10 mt-2 flex gap-2.5 overflow-x-auto pb-1 max-w-full md:hidden">
+                      {venueResults.map((v, j) => (
+                        <InlineVenueCard key={j} venue={v} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {isLoading && (
+              <div className="flex justify-start">
+                <VAvatar />
+                <div className="px-4 py-3 rounded-2xl rounded-bl-sm" style={{ background: '#F0EDF6' }}>
+                  <div className="flex gap-1 items-center h-4">
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:0ms]" style={{ background: '#C94BBE' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:150ms]" style={{ background: '#C94BBE' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce [animation-delay:300ms]" style={{ background: '#C94BBE' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="p-3 md:p-4 flex-shrink-0" style={{ borderTop: '1px solid #ede9f4' }}>
+            {isError && (
+              <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
+            )}
+            <form onSubmit={handleSubmit} className="flex gap-2 md:gap-3 items-center">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
+                disabled={isLoading || emailSent}
+                className="flex-1 rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: '#F0EDF6', border: 'none' }}
+                onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
+                onBlur={(e) => (e.target.style.boxShadow = 'none')}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim() || emailSent}
+                className="text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
+                style={{ background: '#C94BBE' }}
+                onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
+                onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
+              >
+                {isLoading ? '…' : 'Send'}
+              </button>
+            </form>
+          </div>
         </div>
 
-        <div className="p-3 md:p-4" style={{ borderTop: '1px solid #ede9f4' }}>
-          {isError && (
-            <p className="text-xs text-red-400 mb-2 px-1">Something went wrong. Please try again.</p>
+        {/* Side panel — desktop only, slides in when venues are available */}
+        <div
+          className="hidden md:flex flex-col gap-3 flex-shrink-0 overflow-y-auto"
+          style={{
+            width: '480px',
+            opacity: showPanel ? 1 : 0,
+            transform: showPanel ? 'translateX(0)' : 'translateX(20px)',
+            transition: 'opacity 0.35s ease 0.1s, transform 0.35s ease 0.1s',
+            pointerEvents: showPanel ? 'auto' : 'none',
+          }}
+        >
+          {showPanel && (
+            <>
+              <div className="flex-shrink-0 px-1">
+                <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#C94BBE' }}>
+                  Venue options
+                </p>
+                <p className="text-sm text-neutral-500 mt-0.5">
+                  {latestVenues.length} {latestVenues.length === 1 ? 'space' : 'spaces'} matched your event
+                </p>
+              </div>
+              {latestVenues.map((v, i) => (
+                <SidePanelVenueCard key={i} venue={v} />
+              ))}
+            </>
           )}
-          <form onSubmit={handleSubmit} className="flex gap-2 md:gap-3 items-center">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={isLoading ? 'Waiting for response…' : 'Type your message...'}
-              disabled={isLoading || emailSent}
-              className="flex-1 rounded-xl px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: '#F0EDF6', border: 'none' }}
-              onFocus={(e) => (e.target.style.boxShadow = '0 0 0 2px #C94BBE')}
-              onBlur={(e) => (e.target.style.boxShadow = 'none')}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim() || emailSent}
-              className="text-white rounded-xl px-5 py-3 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
-              style={{ background: '#C94BBE' }}
-              onMouseEnter={(e) => ((e.target as HTMLElement).style.background = '#a83a9e')}
-              onMouseLeave={(e) => ((e.target as HTMLElement).style.background = '#C94BBE')}
-            >
-              {isLoading ? '…' : 'Send'}
-            </button>
-          </form>
         </div>
       </div>
 
