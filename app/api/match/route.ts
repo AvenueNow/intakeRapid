@@ -34,6 +34,8 @@ const DB_NEIGHBORHOODS = [
   'Lower East Side', 'Tribeca', 'Midtown', 'SoHo', 'East Village',
   'Flatiron', "Hell's Kitchen", 'Midtown West', 'Hudson Yards',
   'Financial District', 'NoMad', 'Nolita', 'Midtown East',
+  'Greenwich Village', 'West Village', 'Kips Bay', 'Murray Hill',
+  'Upper West Side',
 ];
 
 const ALIASES: [string, string[]][] = [
@@ -54,8 +56,16 @@ const ALIASES: [string, string[]][] = [
   ['fidi',            ['Financial District']],
   ['nolita',          ['Nolita']],
   ['hudson yards',    ['Hudson Yards']],
+  ['greenwich village', ['Greenwich Village', 'West Village']],
+  ['west village',    ['West Village']],
+  ['kips bay',        ['Kips Bay']],
+  ['murray hill',     ['Murray Hill', 'Kips Bay']],
+  ['upper west side', ['Upper West Side']],
+  ['uws',             ['Upper West Side']],
   ['downtown',        ['Financial District', 'Tribeca', 'SoHo', 'Lower East Side', 'Nolita', 'East Village']],
   ['lower manhattan', ['Financial District', 'Tribeca']],
+  ['uptown',          ['Upper West Side']],
+  ['village',         ['Greenwich Village', 'West Village', 'East Village']],
 ];
 
 function matchNeighborhoods(location: string): string[] | null {
