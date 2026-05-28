@@ -34,6 +34,8 @@ npm run lint     # ESLint
 
 - `ANTHROPIC_API_KEY` — Claude API key
 - `RESEND_API_KEY` — Resend API key
+- `SUPABASE_URL` — Supabase project URL (server-side only, used by `/api/match`)
+- `SUPABASE_ANON_KEY` — Supabase anon JWT (server-side only, used by `/api/match`)
 - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — Google OAuth client ID (enables Google sign-in on the confirmation page; optional, button is hidden if unset)
 
 ## Full user flow
@@ -49,7 +51,7 @@ npm run lint     # ESLint
    - Unlocked state is persisted in `sessionStorage('venuehopperUnlocked')` so returning from `/options` stays unlocked
 5. User submits contact form → `POST /api/contact` emails events@venuehopper.com **and** sends a confirmation email to the user → summary unlocks
 6. User can click **Edit** on the revealed summary → inline edit mode → `POST /api/update-inquiry` re-emails updated summary + contact
-7. Unlocked page shows **"See venue options →"** button → `/options` holding page ("give us 24 hours")
+7. Unlocked page shows **"See venue options →"** button → `/options` — dynamically matched venues from Supabase
    - `/options` has "← Back to my summary" link that returns to the unlocked confirmation page
 
 ## Abandoned conversation tracking
@@ -96,8 +98,19 @@ Edit mode: flips each field to an `<input>` (textarea for agenda). Save hits `/a
 ### `app/api/abandon/route.ts`
 `POST { messages }` — called via `navigator.sendBeacon` when user leaves before completing. Emails a readable partial transcript to events@venuehopper.com. Skips if no user messages.
 
+### `app/api/match/route.ts`
+`POST { summary }` — queries Supabase via PostgREST (no SDK, raw fetch with anon key) and returns up to 5 ranked venue packages.
+
+**Parsing:** `guestCount` (max of all numbers), `budget` (upper bound in cents, handles `$5k`, `$2,000–$5,000`), `duration` (`half day` → 4h, takes minimum of a range), `location` (aliases: `LES`, `fidi`, `downtown`, etc. → DB neighborhood names).
+
+**Scoring:** Hard-filters packages where `capacity_max < guestCount`. Soft-scores: neighborhood match (+30), budget fit (+20/+10 bonus if ≥40% of budget), duration fit (+10), has photo (+2). Over-budget packages are penalized proportionally.
+
+**PostgREST select:** Fetches packages with nested `venues`, `package_spaces → spaces → space_photos`, and `venue_photos` in a single request. All tables have public SELECT RLS policies so the anon key is sufficient.
+
 ### `app/options/page.tsx`
-Static holding page. Tells the user to give 24 hours for venue options. Links back to `/confirmation` and to submit another inquiry.
+Client component (`'use client'`). On mount reads `sessionStorage('venuehopperSummary')`, POSTs to `/api/match`, and renders venue cards. Shows skeleton cards while loading. Falls back to the original "Give us 24 hours" holding page if no summary in sessionStorage or no matches returned.
+
+Each **MatchCard** shows: cover photo (space photo preferred over venue photo), venue name, neighborhood pill, address, package name, formatted price (handles Starting at / Minimum Spend / Cash Bar types), capacity, duration, specialties chips, and an "Inquire about this venue →" mailto CTA pre-filled with venue + package name.
 
 ### `app/layout.tsx`
 Loads Inter (body) and Playfair Display (headings, italic). Includes `<Analytics />` from `@vercel/analytics/next`.
