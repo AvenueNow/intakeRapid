@@ -6,6 +6,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 
+type VenueResult = {
+  venueName: string;
+  address: string;
+  neighborhood: string;
+  venueType: string;
+  spaceName: string;
+  capacityMax: number | null;
+  packageName: string;
+  priceCents: number;
+  durationHours: number;
+  coverPhotoUrl: string | null;
+};
+
 function Logo() {
   return (
     <div className="flex flex-col items-center gap-1.5 mb-3 md:mb-6">
@@ -29,6 +42,60 @@ function VAvatar() {
   );
 }
 
+function InlineVenueCard({ venue }: { venue: VenueResult }) {
+  const dollars = venue.priceCents
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(venue.priceCents / 100)
+    : null;
+
+  return (
+    <div className="flex-shrink-0 w-44 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+      {venue.coverPhotoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={venue.coverPhotoUrl} alt={venue.venueName} className="h-24 w-full object-cover" />
+      ) : (
+        <div className="h-24 flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.07)' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE" opacity="0.4"/>
+          </svg>
+        </div>
+      )}
+      <div className="p-2.5 flex flex-col gap-1 flex-1">
+        <div className="flex items-start gap-1 justify-between">
+          <p className="text-xs font-semibold text-neutral-900 leading-tight line-clamp-2">{venue.venueName}</p>
+          <span className="text-[9px] rounded-full px-1.5 py-0.5 shrink-0 leading-tight mt-0.5"
+            style={{ background: 'rgba(201,75,190,0.10)', color: '#C94BBE' }}>
+            {venue.neighborhood}
+          </span>
+        </div>
+        <p className="text-[10px] text-neutral-500 leading-tight line-clamp-1">{venue.packageName}</p>
+        <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-auto">
+          {dollars && <span className="font-semibold text-neutral-700">{dollars}</span>}
+          {venue.capacityMax && <span>≤{venue.capacityMax}</span>}
+          <span>{venue.durationHours}h</span>
+        </div>
+        <a
+          href={`mailto:events@venuehopper.com?subject=Interested in ${encodeURIComponent(venue.venueName)} — ${encodeURIComponent(venue.packageName)}`}
+          className="mt-1 block text-center text-[10px] font-medium py-1.5 rounded-lg text-white transition"
+          style={{ background: '#C94BBE' }}
+          onMouseOver={e => (e.currentTarget.style.background = '#a83a9e')}
+          onMouseOut={e  => (e.currentTarget.style.background = '#C94BBE')}
+        >
+          Inquire →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function getVenueResults(m: UIMessage): VenueResult[] {
+  for (const p of m.parts) {
+    if (p.type === 'tool-searchVenues' && p.state === 'output-available') {
+      return (p.output as VenueResult[]) ?? [];
+    }
+  }
+  return [];
+}
+
 export default function Page() {
   const { messages, sendMessage, status } = useChat();
   const router = useRouter();
@@ -40,7 +107,6 @@ export default function Page() {
   const isLoading = status === 'streaming' || status === 'submitted';
   const isError = status === 'error';
 
-  // Refs so event handlers always read current values without stale closures
   const messagesRef = useRef(messages);
   const emailSentRef = useRef(emailSent);
   const abandonSentRef = useRef(false);
@@ -121,20 +187,35 @@ export default function Page() {
 
           {messages.map((m: UIMessage, i: number) => {
             const text = getTextContent(m);
-            if (!text) return null;
             const isUser = m.role === 'user';
+            const venueResults = isUser ? [] : getVenueResults(m);
+
+            if (!text && venueResults.length === 0) return null;
+
             return (
-              <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                {!isUser && <VAvatar />}
-                <div
-                  className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
-                  style={isUser
-                    ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
-                    : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
-                  }
-                >
-                  <ReactMarkdown>{text}</ReactMarkdown>
-                </div>
+              <div key={i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                {text && (
+                  <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    {!isUser && <VAvatar />}
+                    <div
+                      className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed prose prose-sm"
+                      style={isUser
+                        ? { background: '#C94BBE', color: '#fff', borderBottomRightRadius: '4px' }
+                        : { background: '#F0EDF6', color: '#1a1a1a', borderBottomLeftRadius: '4px' }
+                      }
+                    >
+                      <ReactMarkdown>{text}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
+                {venueResults.length > 0 && (
+                  <div className="ml-10 mt-2 flex gap-2.5 overflow-x-auto pb-1 max-w-full">
+                    {venueResults.map((v, j) => (
+                      <InlineVenueCard key={j} venue={v} />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

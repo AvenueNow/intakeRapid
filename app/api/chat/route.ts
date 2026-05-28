@@ -25,17 +25,21 @@ const anthropic = createAnthropic({
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const SYSTEM_PROMPT = `You're a venue specialist at VenueHopper, helping people find spaces for events in New York City.
+const SYSTEM_PROMPT = `You're V, a venue specialist at VenueHopper, helping people find event spaces in NYC.
 
-Keep responses short — one or two sentences, two questions max at a time. No bullet points, no lists. Match the user's pace.
+Be conversational and quick. One or two sentences at a time — no lists, no bullets. Match the user's energy.
 
-Infer what you can from context and just move on. If someone says networking event, you know it's standing. Corporate dinner means private room. Don't announce your assumptions — just factor them in and ask about what you still actually need. Only ask if something is genuinely ambiguous and would change the venues you'd suggest.
+**Search early and often.** As soon as you have a rough sense of the event (even just "networking event, ~50 people"), call searchVenues. Don't wait to collect everything first. Re-call searchVenues whenever the user gives you new info — different neighborhood, updated budget, fewer guests, different date — so they always see fresh options.
 
-You need: date(s), neighborhood or part of the city, guest count, budget, and how long. Event type and what's happening usually come through naturally. Dietary needs only matter if context suggests it (large group, specific cuisine, etc.) — otherwise skip it.
+Start with one open question like "What kind of event and roughly how many people?" Then search with whatever you learn. Keep refining conversationally from there.
 
-Once you have enough, ask exactly: "Great, I have what I need to get a few options for you. Anything else I'm missing?" — then reply with "Got it. Let me get you some options." and call searchVenues, then sendSummaryEmail in the same response.
+Infer silently: networking → standing, corporate dinner → private room. Don't announce assumptions — just use them.
 
-Fill in the summary using whatever you've inferred, not just what was explicitly stated. Stay on topic. No pricing commitments.`;
+Collect over time (never ask all at once): event type, guest count, neighborhood/area, budget, date(s), duration. Dietary restrictions only if relevant.
+
+When the user is happy with what they see, say: "Want me to save these and send them to your email?" — then call sendSummaryEmail with everything gathered, filling gaps with your best inference.
+
+Stay on topic. No pricing commitments.`;
 
 const summarySchema = z.object({
   availability: z.string().describe('Date(s) the client is considering'),
@@ -60,6 +64,7 @@ type VenueResult = {
   packageName: string;
   priceCents: number;
   durationHours: number;
+  coverPhotoUrl: string | null;
 };
 
 export async function POST(req: Request) {
@@ -85,39 +90,33 @@ export async function POST(req: Request) {
         }),
         execute: async ({ guestCount, budgetCents, neighborhood, durationHours }) => {
           try {
-            let spacesQuery = `spaces?is_active=eq.true&select=id,venue_id,name,capacity_min,capacity_max`;
-            if (guestCount) {
-              spacesQuery += `&capacity_max=gte.${guestCount}`;
-            }
+            type Photo = { image_url: string; is_cover: boolean };
+            type SpaceRow = { id: string; venue_id: string; name: string; capacity_min: number | null; capacity_max: number | null; space_photos: Photo[] };
+            type VenueRow = { id: string; name: string; neighborhood: string | null; venue_type: string; address: string; venue_photos: Photo[] };
+            type PkgRow   = { venue_id: string; name: string; discount_price: number | null; original_price: number | null; duration_hours: number };
 
-            const spaces: { id: string; venue_id: string; name: string; capacity_min: number | null; capacity_max: number | null }[] =
-              await supabaseGet(spacesQuery);
+            let spacesQuery = `spaces?is_active=eq.true&select=id,venue_id,name,capacity_min,capacity_max,space_photos(image_url,is_cover)`;
+            if (guestCount) spacesQuery += `&capacity_max=gte.${guestCount}`;
 
+            const spaces: SpaceRow[] = await supabaseGet(spacesQuery);
             if (!spaces.length) return [];
 
             const venueIds = [...new Set(spaces.map((s) => s.venue_id))];
-            let venuesQuery = `venues?is_active=eq.true&select=id,name,neighborhood,venue_type,address&id=in.(${venueIds.join(',')})`;
-            if (neighborhood) {
-              venuesQuery += `&neighborhood=ilike.*${encodeURIComponent(neighborhood)}*`;
-            }
-            const venues: { id: string; name: string; neighborhood: string | null; venue_type: string; address: string }[] =
-              await supabaseGet(venuesQuery);
+            let venuesQuery = `venues?is_active=eq.true&select=id,name,neighborhood,venue_type,address,venue_photos(image_url,is_cover)&id=in.(${venueIds.join(',')})`;
+            if (neighborhood) venuesQuery += `&neighborhood=ilike.*${encodeURIComponent(neighborhood)}*`;
 
+            const venues: VenueRow[] = await supabaseGet(venuesQuery);
             if (!venues.length) return [];
 
             const matchingVenueIds = venues.map((v) => v.id);
             let pkgQuery = `packages?is_active=eq.true&select=venue_id,name,discount_price,original_price,duration_hours&venue_id=in.(${matchingVenueIds.join(',')})`;
-            if (budgetCents > 0) {
-              pkgQuery += `&discount_price=lte.${budgetCents}`;
-            }
-            if (durationHours) {
-              pkgQuery += `&duration_hours=gte.${durationHours}`;
-            }
-            const packages: { venue_id: string; name: string; discount_price: number | null; original_price: number | null; duration_hours: number }[] =
-              await supabaseGet(pkgQuery);
+            if (budgetCents > 0) pkgQuery += `&discount_price=lte.${budgetCents}`;
+            if (durationHours)   pkgQuery += `&duration_hours=gte.${durationHours}`;
+
+            const packages: PkgRow[] = await supabaseGet(pkgQuery);
 
             const venueMap = new Map(venues.map((v) => [v.id, v]));
-            const spaceMap = new Map<string, typeof spaces[0][]>();
+            const spaceMap = new Map<string, SpaceRow[]>();
             for (const s of spaces) {
               if (!spaceMap.has(s.venue_id)) spaceMap.set(s.venue_id, []);
               spaceMap.get(s.venue_id)!.push(s);
@@ -128,6 +127,13 @@ export async function POST(req: Request) {
               const venue = venueMap.get(pkg.venue_id);
               if (!venue) continue;
               const space = spaceMap.get(pkg.venue_id)?.[0];
+              const photos = space?.space_photos ?? [];
+              const coverPhotoUrl =
+                photos.find(p => p.is_cover)?.image_url ??
+                photos[0]?.image_url ??
+                venue.venue_photos?.find(p => p.is_cover)?.image_url ??
+                venue.venue_photos?.[0]?.image_url ??
+                null;
               results.push({
                 venueName: venue.name,
                 address: venue.address,
@@ -138,6 +144,7 @@ export async function POST(req: Request) {
                 packageName: pkg.name,
                 priceCents: pkg.discount_price ?? pkg.original_price ?? 0,
                 durationHours: pkg.duration_hours,
+                coverPhotoUrl,
               });
             }
             return results;
