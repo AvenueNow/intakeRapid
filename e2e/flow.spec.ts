@@ -240,7 +240,7 @@ test('options page: shows venue cards when summary exists', async ({ page }) => 
   await expect(page.locator('text=Give us 24 hours')).not.toBeVisible({ timeout: 8000 });
   await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
 
-  const cards = page.locator('a:has-text("Inquire about this venue")');
+  const cards = page.locator('a:has-text("Inquire")');
   await expect(cards.first()).toBeVisible();
 
   await screenshot(page, '09-options-with-cards');
@@ -275,9 +275,9 @@ test('options page: bookmark buttons appear on cards when inquiry slug is set', 
   await page.goto('/options');
   await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
 
-  // Bookmark buttons should be visible (one per card)
-  const bookmarks = page.locator('button[title*="shortlist"]');
-  await expect(bookmarks.first()).toBeVisible();
+  // Save buttons should be visible (one per card)
+  const saveButtons = page.locator('button:has-text("Save")');
+  await expect(saveButtons.first()).toBeVisible();
 
   await screenshot(page, '11-options-bookmark-buttons');
 });
@@ -298,11 +298,11 @@ test('options page: saving a venue shows sticky shortlist bar', async ({ page })
   await page.goto('/options');
   await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
 
-  // Click first bookmark
-  await page.locator('button[title*="shortlist"]').first().click();
+  // Click first Save button
+  await page.locator('button:has-text("Save")').first().click();
 
   // Sticky bar should appear
-  await expect(page.locator('text=saved')).toBeVisible({ timeout: 3000 });
+  await expect(page.locator('text=venue saved')).toBeVisible({ timeout: 3000 });
   await expect(page.locator('text=View shortlist')).toBeVisible();
 
   await screenshot(page, '12-options-sticky-bar');
@@ -323,7 +323,7 @@ test('options page: shortlist bar links to event page', async ({ page }) => {
 
   await page.goto('/options');
   await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
-  await page.locator('button[title*="shortlist"]').first().click();
+  await page.locator('button:has-text("Save")').first().click();
 
   const link = page.locator('a:has-text("View shortlist")');
   await expect(link).toBeVisible();

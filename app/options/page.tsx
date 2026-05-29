@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -106,37 +106,15 @@ function MatchCard({
     <div className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col">
       {/* Photo */}
       {match.coverPhoto ? (
-        <div className="h-44 overflow-hidden relative">
+        <div className="h-44 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={match.coverPhoto}
-            alt={match.venueName}
-            className="w-full h-full object-cover"
-          />
-          <button
-            onClick={onToggle}
-            disabled={toggling}
-            title={canSave ? (isSaved ? 'Remove from shortlist' : 'Save to shortlist') : 'Complete your inquiry first to save venues'}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition"
-            style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', opacity: toggling ? 0.5 : 1 }}
-          >
-            <BookmarkIcon filled={isSaved} />
-          </button>
+          <img src={match.coverPhoto} alt={match.venueName} className="w-full h-full object-cover" />
         </div>
       ) : (
-        <div className="h-44 flex items-center justify-center relative" style={{ background: 'rgba(201,75,190,0.07)' }}>
+        <div className="h-44 flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.07)' }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE" opacity="0.4"/>
           </svg>
-          <button
-            onClick={onToggle}
-            disabled={toggling}
-            title={canSave ? (isSaved ? 'Remove from shortlist' : 'Save to shortlist') : 'Complete your inquiry first to save venues'}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition"
-            style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', opacity: toggling ? 0.5 : 1 }}
-          >
-            <BookmarkIcon filled={isSaved} />
-          </button>
         </div>
       )}
 
@@ -174,15 +152,30 @@ function MatchCard({
           </div>
         )}
 
-        <div className="mt-auto pt-3">
+        {/* CTAs */}
+        <div className="mt-auto pt-3 flex gap-2">
+          {/* Save button — always visible, explains itself when no session */}
+          <button
+            onClick={onToggle}
+            disabled={toggling}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border transition shrink-0 disabled:opacity-50"
+            style={{
+              background: isSaved ? 'rgba(201,75,190,0.08)' : '#fff',
+              borderColor: isSaved ? '#C94BBE' : '#e5e7eb',
+              color: isSaved ? '#C94BBE' : canSave ? '#374151' : '#9ca3af',
+            }}
+          >
+            <BookmarkIcon filled={isSaved} />
+            {isSaved ? 'Saved' : 'Save'}
+          </button>
           <a
             href={`mailto:events@venuehopper.com?subject=Interested in ${encodeURIComponent(match.venueName)} — ${encodeURIComponent(match.packageName)}`}
-            className="block w-full text-center text-sm font-medium py-2 rounded-xl transition"
+            className="flex-1 text-center text-sm font-medium py-2 rounded-xl transition"
             style={{ background: '#C94BBE', color: '#fff' }}
             onMouseOver={e => (e.currentTarget.style.background = '#a83a9e')}
             onMouseOut={e  => (e.currentTarget.style.background = '#C94BBE')}
           >
-            Inquire about this venue →
+            Inquire →
           </a>
         </div>
       </div>
@@ -228,6 +221,8 @@ export default function OptionsPage() {
   const [inquirySlug, setInquirySlug] = useState<string | null>(null);
   const [savedIds, setSavedIds]     = useState<Set<string>>(new Set());
   const [toggling, setToggling]     = useState<Set<string>>(new Set());
+  const [nudge, setNudge]           = useState(false);
+  const nudgeTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     async function run() {
@@ -266,7 +261,12 @@ export default function OptionsPage() {
   }, []);
 
   const toggleSave = async (packageId: string) => {
-    if (!inquirySlug) return;
+    if (!inquirySlug) {
+      setNudge(true);
+      if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
+      nudgeTimer.current = setTimeout(() => setNudge(false), 4000);
+      return;
+    }
     const wasSaved = savedIds.has(packageId);
 
     // Optimistic update
@@ -362,6 +362,24 @@ export default function OptionsPage() {
           Submit another inquiry
         </Link>
       </div>
+
+      {/* Nudge toast — shown when user clicks Save without a session */}
+      {nudge && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg text-sm font-medium z-50"
+          style={{ background: '#1a1a1a', color: '#fff', whiteSpace: 'nowrap' }}
+        >
+          <span>First, submit your contact info to save venues.</span>
+          <Link
+            href="/confirmation"
+            className="underline underline-offset-2 shrink-0"
+            style={{ color: '#e879f9' }}
+            onClick={() => setNudge(false)}
+          >
+            Go back →
+          </Link>
+        </div>
+      )}
 
       {/* Sticky saved bar */}
       {savedCount > 0 && inquirySlug && (
