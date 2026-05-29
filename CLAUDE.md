@@ -28,7 +28,14 @@ git push origin main
 npm run dev      # start dev server on localhost:3000
 npm run build    # production build
 npm run lint     # ESLint
+npm run test:e2e # Playwright e2e tests (runs against localhost:3000, auto-starts dev server)
 ```
+
+## Testing
+
+Playwright e2e tests live in `e2e/flow.spec.ts`. **Always run `npm run test:e2e` after any UI or API changes** and fix failures before pushing. Tests auto-start the dev server. Screenshots are saved to `test-results/screenshots/` (gitignored).
+
+The test suite covers: chat layout, confirmation locked/unlocked, options page venue cards + save buttons + sticky bar, event page (public/owner/rename/share), and login flow. When adding new UI, add corresponding tests.
 
 ## Environment variables
 
