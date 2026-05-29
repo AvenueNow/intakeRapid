@@ -354,8 +354,8 @@ export default function Page() {
 
   return (
     <div className="h-[100dvh] flex flex-col items-center pt-2 pb-2 px-4 md:pt-4 md:pb-2 overflow-hidden" style={{ background: '#F0EDF6' }}>
-      {/* Header — always centered */}
-      <div className="w-full max-w-lg flex-shrink-0 mb-1 text-center">
+      {/* Header — hidden once venue options are shown */}
+      <div className={`w-full max-w-lg flex-shrink-0 mb-1 text-center transition-all duration-300 ${showPanel ? 'hidden' : ''}`}>
         <Logo />
         <h1 className="text-2xl md:text-3xl text-neutral-900 mb-0.5 md:mb-1" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
           Plan your event.
