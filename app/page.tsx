@@ -102,7 +102,7 @@ const MOCK_CARDS: VenueResult[] = [
 
 function Logo() {
   return (
-    <div className="flex flex-col items-center gap-1.5 mb-3 md:mb-6">
+    <div className="flex flex-col items-center gap-1 mb-1.5 md:mb-2">
       <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.12)' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE"/>
@@ -353,11 +353,11 @@ export default function Page() {
       .join('');
 
   return (
-    <div className="h-[100dvh] flex flex-col items-center pt-4 pb-2 px-4 md:py-8 overflow-hidden" style={{ background: '#F0EDF6' }}>
+    <div className="h-[100dvh] flex flex-col items-center pt-2 pb-2 px-4 md:pt-4 md:pb-2 overflow-hidden" style={{ background: '#F0EDF6' }}>
       {/* Header — always centered */}
       <div className="w-full max-w-lg flex-shrink-0 mb-1 text-center">
         <Logo />
-        <h1 className="text-3xl md:text-4xl text-neutral-900 mb-1 md:mb-2" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
+        <h1 className="text-2xl md:text-3xl text-neutral-900 mb-0.5 md:mb-1" style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }}>
           Plan your event.
         </h1>
         <p className="hidden md:block text-neutral-500 text-sm leading-relaxed">
@@ -366,7 +366,7 @@ export default function Page() {
       </div>
 
       {/* Stage: outer centers via justify-center, inner constrains width */}
-      <div className="flex-1 min-h-0 mt-3 md:mt-5 flex justify-center w-full">
+      <div className="flex-1 min-h-0 mt-2 md:mt-3 flex justify-center w-full">
         <div
           className="flex gap-4 w-full min-h-0"
           data-testid="stage"
