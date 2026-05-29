@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 import { z } from 'zod';
 import { type EventSchema, type MatchedPackage, createEmptySchema } from '@/lib/event-schema';
 import { findBestPackage } from '@/lib/score-packages';
+import { type SchemaPatch, applyPatch, updateSchemaInputSchema } from '@/lib/schema-patch';
 
 export const maxDuration = 60;
 
@@ -119,78 +120,6 @@ function buildMatchSummary(
   }
 
   return phrase2 ? `${phrase1} · ${phrase2}` : phrase1;
-}
-
-// ── Schema merge ───────────────────────────────────────────────────────────────
-// Arrays use append semantics (agent adds, never removes).
-// Confidence fields replace. Nested objects are merged shallowly.
-
-type SchemaPatch = {
-  // Logistics
-  date?:         { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  guestCount?:   { value: number; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  duration?:     { value: number; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  // Space
-  spaceType?:    { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  indoorOutdoor?:{ value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  floorPlan?:    { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  neighborhoodAdd?:        string;   // appended to neighborhood.preferred
-  neighborhoodDealbreaker?: string;  // appended to neighborhood.dealbreakers
-  // Atmosphere
-  vibesLiked?:    string[];  // appended to vibes.liked
-  vibesDisliked?: string[];  // appended to vibes.disliked
-  formality?:     { value: number; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  // F&B
-  catering?:      { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  bar?:           { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  dietaryAdd?:    string[];  // appended to dietary.restrictions
-  // Production
-  music?:         { value: string; confidence: number; source: 'stated' | 'inferred' | 'probe' };
-  // Budget
-  budgetCeiling?:     number;                      // in cents
-  budgetPerHead?:     number;
-  budgetFlexibility?: 'firm' | 'soft' | 'unknown';
-  // Session
-  agentMode?:         'collect' | 'narrow' | 'confirm';
-  dealbreakerAdd?:    string;  // appended to dealbreakers
-};
-
-function applyPatch(schema: EventSchema, patch: SchemaPatch): EventSchema {
-  const s = { ...schema };
-  if (patch.date)          s.date          = patch.date as EventSchema['date'];
-  if (patch.guestCount)    s.guestCount    = patch.guestCount as EventSchema['guestCount'];
-  if (patch.duration)      s.duration      = patch.duration as EventSchema['duration'];
-  if (patch.spaceType)     s.spaceType     = patch.spaceType as EventSchema['spaceType'];
-  if (patch.indoorOutdoor) s.indoorOutdoor = patch.indoorOutdoor as EventSchema['indoorOutdoor'];
-  if (patch.floorPlan)     s.floorPlan     = patch.floorPlan as EventSchema['floorPlan'];
-  if (patch.formality)     s.formality     = patch.formality as EventSchema['formality'];
-  if (patch.catering)      s.catering      = patch.catering as EventSchema['catering'];
-  if (patch.bar)           s.bar           = patch.bar as EventSchema['bar'];
-  if (patch.music)         s.music         = patch.music as EventSchema['music'];
-
-  s.neighborhood = { ...s.neighborhood };
-  if (patch.neighborhoodAdd && !s.neighborhood.preferred.includes(patch.neighborhoodAdd))
-    s.neighborhood.preferred = [...s.neighborhood.preferred, patch.neighborhoodAdd];
-  if (patch.neighborhoodDealbreaker && !s.neighborhood.dealbreakers.includes(patch.neighborhoodDealbreaker))
-    s.neighborhood.dealbreakers = [...s.neighborhood.dealbreakers, patch.neighborhoodDealbreaker];
-
-  s.vibes = { ...s.vibes };
-  if (patch.vibesLiked)    s.vibes.liked    = [...new Set([...s.vibes.liked,    ...patch.vibesLiked])];
-  if (patch.vibesDisliked) s.vibes.disliked = [...new Set([...s.vibes.disliked, ...patch.vibesDisliked])];
-
-  s.dietary = { ...s.dietary };
-  if (patch.dietaryAdd) s.dietary.restrictions = [...new Set([...s.dietary.restrictions, ...patch.dietaryAdd])];
-
-  s.budget = { ...s.budget };
-  if (patch.budgetCeiling    !== undefined) s.budget.ceiling     = patch.budgetCeiling;
-  if (patch.budgetPerHead    !== undefined) s.budget.perHead     = patch.budgetPerHead;
-  if (patch.budgetFlexibility !== undefined) s.budget.flexibility = patch.budgetFlexibility;
-
-  if (patch.agentMode)      s.agentMode    = patch.agentMode;
-  if (patch.dealbreakerAdd && !s.dealbreakers.includes(patch.dealbreakerAdd))
-    s.dealbreakers = [...s.dealbreakers, patch.dealbreakerAdd];
-
-  return s;
 }
 
 export async function POST(req: Request) {
@@ -328,28 +257,7 @@ export async function POST(req: Request) {
           'Call this after any user message that reveals or changes a preference. ' +
           'Arrays (vibesLiked, vibesDisliked, dietaryAdd) are appended — do not repeat items already set. ' +
           'Use confidence 0.9+ for explicitly stated facts, 0.6–0.8 for inferred, 0.4–0.6 for probed guesses.',
-        inputSchema: z.object({
-          date:          z.object({ value: z.string(), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          guestCount:    z.object({ value: z.number(), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          duration:      z.object({ value: z.number(), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          spaceType:     z.object({ value: z.enum(['seated-dinner','cocktail-reception','hybrid','ceremony','conference']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          indoorOutdoor: z.object({ value: z.enum(['indoor','outdoor','either']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          floorPlan:     z.object({ value: z.enum(['private-room','buyout','semi-private']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          neighborhoodAdd:        z.string().optional().describe('A single neighborhood name to add to preferred list'),
-          neighborhoodDealbreaker:z.string().optional().describe('A single neighborhood to mark as dealbreaker'),
-          vibesLiked:    z.array(z.string()).optional().describe('Vibe words to append to liked list, e.g. ["intimate","moody"]'),
-          vibesDisliked: z.array(z.string()).optional().describe('Vibe words to append to disliked list'),
-          formality:     z.object({ value: z.number().min(1).max(5), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          catering:      z.object({ value: z.enum(['venue','outside','none']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          bar:           z.object({ value: z.enum(['open','cash','beer-wine','none']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          dietaryAdd:    z.array(z.string()).optional().describe('Dietary restrictions to append'),
-          music:         z.object({ value: z.enum(['DJ','live-band','playlist','none']), confidence: z.number(), source: z.enum(['stated','inferred','probe']) }).optional(),
-          budgetCeiling:      z.number().optional().describe('Budget ceiling in cents, e.g. $8000 = 800000'),
-          budgetPerHead:      z.number().optional().describe('Per-head budget in cents'),
-          budgetFlexibility:  z.enum(['firm','soft','unknown']).optional(),
-          agentMode:          z.enum(['collect','narrow','confirm']).optional().describe('Transition mode when appropriate'),
-          dealbreakerAdd:     z.string().optional().describe('An absolute dealbreaker to record in natural language'),
-        }),
+        inputSchema: updateSchemaInputSchema,
         execute: async (patch) => {
           currentSchema = applyPatch(currentSchema, patch as SchemaPatch);
           return currentSchema;

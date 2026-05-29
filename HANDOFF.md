@@ -29,8 +29,8 @@ Full concept: `docs/agent-ideology/README.md`
 | 4 | `app/api/chat/route.ts` — add `updateSchema` tool | ✅ done |
 | 5 | `app/api/chat/route.ts` — add `requestNextPackage` tool | ✅ done |
 | 6 | `app/api/chat/route.ts` — add `concludeSearch` tool | ✅ done |
-| 7 | `app/options/page.tsx` — two-panel layout (chat left, card right) | ⬜ not started |
-| 8 | `app/api/chat/route.ts` — update system prompt (modes, narration, inference) | ⬜ not started |
+| 7 | `app/options/page.tsx` — two-panel layout (chat left, card right) | ✅ done |
+| 8 | `app/api/options-chat/route.ts` — full system prompt (modes, narration, inference) | ⬜ not started |
 | 9 | agent system prompt — schema summary checkpoint after ~4 packages | ⬜ not started |
 | 10 | `app/api/contact/route.ts`, `app/api/update-inquiry/route.ts` — schema in emails | ⬜ not started |
 | 11 | `e2e/options-agent.spec.ts` — new e2e tests for agent flow | ⬜ not started |
