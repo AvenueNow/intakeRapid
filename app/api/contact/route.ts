@@ -2,6 +2,8 @@ import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
 
 export async function POST(req: Request) {
   const { name, email, phone, summary } = await req.json();
@@ -127,9 +129,50 @@ export async function POST(req: Request) {
         html: confirmationHtml,
       }),
     ]);
-    return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Contact email failed:', err);
     return NextResponse.json({ success: false }, { status: 500 });
   }
+
+  // Create intake inquiry (non-fatal if it fails)
+  let inquirySlug: string | null = null;
+  let sessionToken: string | null = null;
+  try {
+    const eventName = (summary as Record<string, string>)?.eventType ?? 'My Event';
+    const inquiryRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/intake_inquiries?select=id,slug,session_token`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({ name, email, phone: phone || null, event_name: eventName, summary }),
+      }
+    );
+    if (inquiryRes.ok) {
+      const rows = await inquiryRes.json();
+      const inquiry = rows[0];
+      if (inquiry) {
+        inquirySlug = inquiry.slug;
+        sessionToken = inquiry.session_token;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to create intake inquiry:', e);
+  }
+
+  const response = NextResponse.json({ success: true, inquirySlug });
+  if (sessionToken) {
+    response.cookies.set('vh_session', sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+  return response;
 }

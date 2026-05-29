@@ -165,6 +165,8 @@ export default function ConfirmationPage() {
         body: JSON.stringify({ ...contact, summary }),
       });
       if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.inquirySlug) sessionStorage.setItem('venuehopperInquirySlug', data.inquirySlug);
       sessionStorage.setItem('venuehopperUnlocked', '1');
       setUnlocked(true);
     } catch {

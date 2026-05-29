@@ -76,32 +76,72 @@ function SkeletonCard() {
   );
 }
 
-function MatchCard({ match }: { match: VenueMatch }) {
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24"
+      fill={filled ? '#C94BBE' : 'none'}
+      stroke={filled ? '#C94BBE' : '#9ca3af'}
+      strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+    </svg>
+  );
+}
+
+function MatchCard({
+  match,
+  isSaved,
+  canSave,
+  toggling,
+  onToggle,
+}: {
+  match: VenueMatch;
+  isSaved: boolean;
+  canSave: boolean;
+  toggling: boolean;
+  onToggle: () => void;
+}) {
   const cap = capacityLabel(match.capacityMin, match.capacityMax);
 
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col">
       {/* Photo */}
       {match.coverPhoto ? (
-        <div className="h-44 overflow-hidden">
+        <div className="h-44 overflow-hidden relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={match.coverPhoto}
             alt={match.venueName}
             className="w-full h-full object-cover"
           />
+          <button
+            onClick={onToggle}
+            disabled={toggling}
+            title={canSave ? (isSaved ? 'Remove from shortlist' : 'Save to shortlist') : 'Complete your inquiry first to save venues'}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition"
+            style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', opacity: toggling ? 0.5 : 1 }}
+          >
+            <BookmarkIcon filled={isSaved} />
+          </button>
         </div>
       ) : (
-        <div className="h-44 flex items-center justify-center" style={{ background: 'rgba(201,75,190,0.07)' }}>
+        <div className="h-44 flex items-center justify-center relative" style={{ background: 'rgba(201,75,190,0.07)' }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#C94BBE" opacity="0.4"/>
           </svg>
+          <button
+            onClick={onToggle}
+            disabled={toggling}
+            title={canSave ? (isSaved ? 'Remove from shortlist' : 'Save to shortlist') : 'Complete your inquiry first to save venues'}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition"
+            style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 4px rgba(0,0,0,0.15)', opacity: toggling ? 0.5 : 1 }}
+          >
+            <BookmarkIcon filled={isSaved} />
+          </button>
         </div>
       )}
 
       {/* Body */}
       <div className="p-5 flex flex-col gap-2 flex-1">
-        {/* Venue name + type pill */}
         <div className="flex items-start justify-between gap-2">
           <h2 className="font-semibold text-neutral-900 text-base leading-tight">{match.venueName}</h2>
           <span className="text-xs rounded-full px-2 py-0.5 whitespace-nowrap shrink-0 mt-0.5"
@@ -110,15 +150,12 @@ function MatchCard({ match }: { match: VenueMatch }) {
           </span>
         </div>
 
-        {/* Address */}
         <p className="text-xs text-neutral-400 leading-snug">{match.address}</p>
 
         <div className="h-px bg-neutral-100 my-1" />
 
-        {/* Package name */}
         <p className="text-sm font-medium" style={{ color: '#C94BBE' }}>{match.packageName}</p>
 
-        {/* Stats row */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
           <span className="font-semibold text-neutral-700">{formatPrice(match.price, match.packageType)}</span>
           {cap && <span>{cap}</span>}
@@ -126,7 +163,6 @@ function MatchCard({ match }: { match: VenueMatch }) {
           <span className="capitalize">{match.privacyLevel.toLowerCase()}</span>
         </div>
 
-        {/* Specialties */}
         {match.specialties && match.specialties.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {match.specialties.slice(0, 4).map(s => (
@@ -138,7 +174,6 @@ function MatchCard({ match }: { match: VenueMatch }) {
           </div>
         )}
 
-        {/* CTA */}
         <div className="mt-auto pt-3">
           <a
             href={`mailto:events@venuehopper.com?subject=Interested in ${encodeURIComponent(match.venueName)} — ${encodeURIComponent(match.packageName)}`}
@@ -187,37 +222,85 @@ function HoldingPage() {
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function OptionsPage() {
-  const [matches, setMatches]   = useState<VenueMatch[] | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [matches, setMatches]       = useState<VenueMatch[] | null>(null);
+  const [loading, setLoading]       = useState(true);
   const [hasSummary, setHasSummary] = useState(false);
+  const [inquirySlug, setInquirySlug] = useState<string | null>(null);
+  const [savedIds, setSavedIds]     = useState<Set<string>>(new Set());
+  const [toggling, setToggling]     = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function run() {
-      const raw = sessionStorage.getItem('venuehopperSummary');
+      const raw  = sessionStorage.getItem('venuehopperSummary');
+      const slug = sessionStorage.getItem('venuehopperInquirySlug');
+      if (slug) setInquirySlug(slug);
+
       if (!raw) { setLoading(false); return; }
       setHasSummary(true);
-      try {
-        const res = await fetch('/api/match', {
+
+      // Fetch matches and existing saved packages in parallel
+      const [matchRes, savedRes] = await Promise.allSettled([
+        fetch('/api/match', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ summary: JSON.parse(raw) }),
-        });
-        const data = await res.json();
-        setMatches(data.matches ?? []);
-      } catch {
+        }).then(r => r.json()),
+        slug
+          ? fetch(`/api/event/${slug}`).then(r => r.ok ? r.json() : null)
+          : Promise.resolve(null),
+      ]);
+
+      if (matchRes.status === 'fulfilled') {
+        setMatches(matchRes.value.matches ?? []);
+      } else {
         setMatches([]);
-      } finally {
-        setLoading(false);
       }
+
+      if (savedRes.status === 'fulfilled' && savedRes.value?.packages) {
+        setSavedIds(new Set((savedRes.value.packages as VenueMatch[]).map(p => p.packageId)));
+      }
+
+      setLoading(false);
     }
     run();
   }, []);
 
+  const toggleSave = async (packageId: string) => {
+    if (!inquirySlug) return;
+    const wasSaved = savedIds.has(packageId);
+
+    // Optimistic update
+    setToggling(prev => new Set(prev).add(packageId));
+    setSavedIds(prev => {
+      const next = new Set(prev);
+      wasSaved ? next.delete(packageId) : next.add(packageId);
+      return next;
+    });
+
+    try {
+      await fetch('/api/intake/save', {
+        method: wasSaved ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId }),
+      });
+    } catch {
+      // Revert on error
+      setSavedIds(prev => {
+        const next = new Set(prev);
+        wasSaved ? next.add(packageId) : next.delete(packageId);
+        return next;
+      });
+    } finally {
+      setToggling(prev => { const next = new Set(prev); next.delete(packageId); return next; });
+    }
+  };
+
   const showResults = !loading && hasSummary && matches && matches.length > 0;
   const showHolding = !loading && (!hasSummary || !matches || matches.length === 0);
+  const savedCount  = savedIds.size;
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-16 px-4" style={{ background: '#F0EDF6' }}>
+    <div className="min-h-screen flex flex-col items-center py-16 px-4 pb-28" style={{ background: '#F0EDF6' }}>
       <Logo />
 
       {/* Loading skeletons */}
@@ -239,12 +322,22 @@ export default function OptionsPage() {
               Here are your options.
             </h1>
             <p className="text-sm text-neutral-500">
-              {matches.length} venue{matches.length !== 1 ? 's' : ''} matched your event — reach out to lock one in.
+              {matches.length} venue{matches.length !== 1 ? 's' : ''} matched your event
+              {inquirySlug ? ' — bookmark any you like.' : ' — complete your inquiry to save venues.'}
             </p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            {matches.map(m => <MatchCard key={m.packageId} match={m} />)}
+            {matches.map(m => (
+              <MatchCard
+                key={m.packageId}
+                match={m}
+                isSaved={savedIds.has(m.packageId)}
+                canSave={!!inquirySlug}
+                toggling={toggling.has(m.packageId)}
+                onToggle={() => toggleSave(m.packageId)}
+              />
+            ))}
           </div>
 
           <p className="text-center text-sm text-neutral-400 mt-8">
@@ -269,6 +362,29 @@ export default function OptionsPage() {
           Submit another inquiry
         </Link>
       </div>
+
+      {/* Sticky saved bar */}
+      {savedCount > 0 && inquirySlug && (
+        <div
+          className="fixed bottom-0 left-0 right-0 flex items-center justify-center px-4 py-4"
+          style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderTop: '1px solid #ede9f4', boxShadow: '0 -2px 12px rgba(0,0,0,0.08)' }}
+        >
+          <div className="flex items-center gap-4 w-full max-w-sm">
+            <span className="flex-1 text-sm font-medium text-neutral-700">
+              {savedCount} venue{savedCount !== 1 ? 's' : ''} saved
+            </span>
+            <Link
+              href={`/event/${inquirySlug}`}
+              className="flex items-center gap-1.5 text-sm font-medium text-white px-5 py-2.5 rounded-xl transition"
+              style={{ background: '#C94BBE' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#a83a9e')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#C94BBE')}
+            >
+              View shortlist →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
