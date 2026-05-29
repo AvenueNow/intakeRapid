@@ -159,10 +159,12 @@ export default function ConfirmationPage() {
     setSubmitting(true);
     setContactError('');
     try {
+      const schemaRaw = sessionStorage.getItem('venuehopperSchema');
+      const schema = schemaRaw ? JSON.parse(schemaRaw) : undefined;
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...contact, summary }),
+        body: JSON.stringify({ ...contact, summary, schema }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -198,10 +200,12 @@ export default function ConfirmationPage() {
     setSaving(true);
     setSaveError('');
     try {
+      const schemaRaw = sessionStorage.getItem('venuehopperSchema');
+      const schema = schemaRaw ? JSON.parse(schemaRaw) : undefined;
       const res = await fetch('/api/update-inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summary: draft, contact }),
+        body: JSON.stringify({ summary: draft, contact, schema }),
       });
       if (!res.ok) throw new Error();
       setSummary({ ...draft });
