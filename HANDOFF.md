@@ -26,9 +26,9 @@ Full concept: `docs/agent-ideology/README.md`
 | 1 | `lib/event-schema.ts` — EventSchema type + `createEmptySchema()` | ✅ done |
 | 2 | `lib/schema-session.ts` — `saveSchema` / `loadSchema` helpers | ✅ done |
 | 3 | `app/api/match/route.ts` — accept schema, return 1 package + reason | ✅ done |
-| 4 | `app/api/chat/route.ts` — add `updateSchema` tool | ⬜ not started |
-| 5 | `app/api/chat/route.ts` — add `requestNextPackage` tool | ⬜ not started |
-| 6 | `app/api/chat/route.ts` — add `concludeSearch` tool | ⬜ not started |
+| 4 | `app/api/chat/route.ts` — add `updateSchema` tool | ✅ done |
+| 5 | `app/api/chat/route.ts` — add `requestNextPackage` tool | ✅ done |
+| 6 | `app/api/chat/route.ts` — add `concludeSearch` tool | ✅ done |
 | 7 | `app/options/page.tsx` — two-panel layout (chat left, card right) | ⬜ not started |
 | 8 | `app/api/chat/route.ts` — update system prompt (modes, narration, inference) | ⬜ not started |
 | 9 | agent system prompt — schema summary checkpoint after ~4 packages | ⬜ not started |
