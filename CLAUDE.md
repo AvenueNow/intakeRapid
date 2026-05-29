@@ -33,9 +33,14 @@ npm run test:e2e # Playwright e2e tests (runs against localhost:3000, auto-start
 
 ## Testing
 
-Playwright e2e tests live in `e2e/flow.spec.ts`. **Always run `npm run test:e2e` after any UI or API changes** and fix failures before pushing. Tests auto-start the dev server. Screenshots are saved to `test-results/screenshots/` (gitignored).
+Playwright e2e tests live in `e2e/flow.spec.ts`. Tests auto-start the dev server. Screenshots are saved to `test-results/screenshots/` (gitignored).
 
-The test suite covers: chat layout, confirmation locked/unlocked, options page venue cards + save buttons + sticky bar, event page (public/owner/rename/share), and login flow. When adding new UI, add corresponding tests.
+**Required workflow for every code change:**
+1. `npm run build` — catch TypeScript errors before testing
+2. `npm run test:e2e` — run the full suite; fix all failures before committing
+3. Write new tests alongside new UI or API routes — don't ship untested features
+
+The test suite covers: chat layout, confirmation locked/unlocked, options page venue cards + save buttons + sticky bar, event page (public/owner/rename/share), and login flow. When adding new pages or components, add corresponding tests in the same PR.
 
 ## Environment variables
 
