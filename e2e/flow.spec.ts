@@ -258,3 +258,246 @@ test('options page: back link returns to confirmation', async ({ page }) => {
   await page.locator('text=Back to my summary').click();
   await expect(page).toHaveURL(/\/confirmation/);
 });
+
+// ── Options page — save / bookmark ───────────────────────────────────────────
+
+test('options page: bookmark buttons appear on cards when inquiry slug is set', async ({ page }) => {
+  await seedSummary(page);
+  await page.evaluate(() => {
+    sessionStorage.setItem('venuehopperInquirySlug', 'testslug123');
+  });
+
+  // Mock event fetch (no saved packages yet)
+  await page.route('**/api/event/testslug123', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ inquiry: { event_name: 'Test' }, packages: [], isOwner: true }) })
+  );
+
+  await page.goto('/options');
+  await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
+
+  // Bookmark buttons should be visible (one per card)
+  const bookmarks = page.locator('button[title*="shortlist"]');
+  await expect(bookmarks.first()).toBeVisible();
+
+  await screenshot(page, '11-options-bookmark-buttons');
+});
+
+test('options page: saving a venue shows sticky shortlist bar', async ({ page }) => {
+  await seedSummary(page);
+  await page.evaluate(() => {
+    sessionStorage.setItem('venuehopperInquirySlug', 'testslug123');
+  });
+
+  await page.route('**/api/event/testslug123', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ inquiry: { event_name: 'Test' }, packages: [], isOwner: true }) })
+  );
+  await page.route('**/api/intake/save', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ saved: true }) })
+  );
+
+  await page.goto('/options');
+  await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
+
+  // Click first bookmark
+  await page.locator('button[title*="shortlist"]').first().click();
+
+  // Sticky bar should appear
+  await expect(page.locator('text=saved')).toBeVisible({ timeout: 3000 });
+  await expect(page.locator('text=View shortlist')).toBeVisible();
+
+  await screenshot(page, '12-options-sticky-bar');
+});
+
+test('options page: shortlist bar links to event page', async ({ page }) => {
+  await seedSummary(page);
+  await page.evaluate(() => {
+    sessionStorage.setItem('venuehopperInquirySlug', 'myslugabc');
+  });
+
+  await page.route('**/api/event/myslugabc', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ inquiry: { event_name: 'Test' }, packages: [], isOwner: true }) })
+  );
+  await page.route('**/api/intake/save', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ saved: true }) })
+  );
+
+  await page.goto('/options');
+  await expect(page.locator('text=Here are your options')).toBeVisible({ timeout: 8000 });
+  await page.locator('button[title*="shortlist"]').first().click();
+
+  const link = page.locator('a:has-text("View shortlist")');
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', '/event/myslugabc');
+});
+
+// ── Confirmation — stores inquirySlug ────────────────────────────────────────
+
+test('confirmation page: stores inquirySlug in sessionStorage after unlock', async ({ page }) => {
+  await seedSummary(page);
+  await page.goto('/confirmation');
+
+  await page.route('**/api/contact', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ success: true, inquirySlug: 'slugfromapi' }) })
+  );
+
+  await page.locator('input[placeholder="Your full name"]').fill('Jane Smith');
+  await page.locator('input[placeholder="your@email.com"]').fill('jane@example.com');
+  await page.locator('button:has-text("Unlock My Summary")').click();
+
+  await expect(page.locator('text=See venue options')).toBeVisible({ timeout: 5000 });
+
+  const slug = await page.evaluate(() => sessionStorage.getItem('venuehopperInquirySlug'));
+  expect(slug).toBe('slugfromapi');
+
+  await screenshot(page, '13-confirmation-slug-stored');
+});
+
+// ── Event page ───────────────────────────────────────────────────────────────
+
+const STUB_PACKAGES = [{
+  packageId: 'pkg-001',
+  packageName: 'Private Dining Room',
+  packageType: 'Starting at',
+  privacyLevel: 'Private',
+  durationHours: 4,
+  price: 300000,
+  originalPrice: null,
+  specialties: ['Corporate', 'Dining'],
+  venueId: 'v-001',
+  venueName: 'The Grand Hall',
+  neighborhood: 'Midtown',
+  address: '123 Fifth Ave, New York, NY',
+  venueType: 'Restaurant',
+  capacityMin: 20,
+  capacityMax: 80,
+  coverPhoto: null,
+}];
+
+test('event page: renders saved packages publicly (no cookie)', async ({ page }) => {
+  await page.route('**/api/event/pubslug99', (route) =>
+    route.fulfill({
+      status: 200,
+      body: JSON.stringify({ inquiry: { id: '1', slug: 'pubslug99', name: 'Alex', email: 'a@b.com', event_name: 'Product Launch', summary: {}, created_at: '' }, packages: STUB_PACKAGES, isOwner: false }),
+    })
+  );
+
+  await page.goto('/event/pubslug99');
+
+  await expect(page.locator('text=Product Launch')).toBeVisible();
+  await expect(page.locator('text=The Grand Hall')).toBeVisible();
+  await expect(page.locator('text=1 venue saved')).toBeVisible();
+
+  // No remove button for non-owner
+  await expect(page.locator('button[title="Remove from shortlist"]')).not.toBeVisible();
+
+  await screenshot(page, '14-event-page-public');
+});
+
+test('event page: owner sees rename button and remove buttons', async ({ page }) => {
+  await page.route('**/api/event/ownslug77', (route) =>
+    route.fulfill({
+      status: 200,
+      body: JSON.stringify({ inquiry: { id: '1', slug: 'ownslug77', name: 'Alex', email: 'a@b.com', event_name: 'My Launch', summary: {}, created_at: '' }, packages: STUB_PACKAGES, isOwner: true }),
+    })
+  );
+
+  await page.goto('/event/ownslug77');
+
+  await expect(page.locator('text=My Launch')).toBeVisible();
+  // Pencil/rename button present for owner
+  await expect(page.locator('button[title="Rename event"]')).toBeVisible();
+  // Remove button on card
+  await expect(page.locator('button[title="Remove from shortlist"]')).toBeVisible();
+
+  await screenshot(page, '15-event-page-owner');
+});
+
+test('event page: not-found slug shows error state', async ({ page }) => {
+  await page.route('**/api/event/nope000', (route) =>
+    route.fulfill({ status: 404, body: JSON.stringify({ error: 'Not found' }) })
+  );
+
+  await page.goto('/event/nope000');
+  await expect(page.locator('text=couldn\'t be found')).toBeVisible({ timeout: 5000 });
+
+  await screenshot(page, '16-event-page-not-found');
+});
+
+test('event page: share button copies URL', async ({ page }) => {
+  await page.route('**/api/event/shareslug', (route) =>
+    route.fulfill({
+      status: 200,
+      body: JSON.stringify({ inquiry: { id: '1', slug: 'shareslug', name: 'Alex', email: 'a@b.com', event_name: 'My Event', summary: {}, created_at: '' }, packages: [], isOwner: true }),
+    })
+  );
+
+  await page.goto('/event/shareslug');
+  await expect(page.locator('text=My Event')).toBeVisible();
+
+  // Grant clipboard permissions
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.locator('button:has-text("Share link")').click();
+
+  // Button should change to "Copied!"
+  await expect(page.locator('button:has-text("Copied!")')).toBeVisible({ timeout: 2000 });
+
+  await screenshot(page, '17-event-page-share-copied');
+});
+
+test('event page: owner can rename event inline', async ({ page }) => {
+  await page.route('**/api/event/renameslug', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill({
+        status: 200,
+        body: JSON.stringify({ inquiry: { id: '1', slug: 'renameslug', name: 'Alex', email: 'a@b.com', event_name: 'Old Name', summary: {}, created_at: '' }, packages: [], isOwner: true }),
+      });
+    }
+  });
+
+  await page.goto('/event/renameslug');
+  await expect(page.locator('text=Old Name')).toBeVisible();
+
+  await page.locator('button[title="Rename event"]').click();
+  await expect(page.locator('input')).toBeVisible();
+  await page.locator('input').fill('New Event Name');
+  await page.locator('button:has-text("Save")').click();
+
+  await expect(page.locator('text=New Event Name')).toBeVisible({ timeout: 3000 });
+
+  await screenshot(page, '18-event-page-renamed');
+});
+
+// ── Login page ───────────────────────────────────────────────────────────────
+
+test('login page: renders email form', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page.locator('text=Sign in to your shortlist')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expect(page.locator('button:has-text("Send sign-in link")')).toBeVisible();
+
+  await screenshot(page, '19-login-form');
+});
+
+test('login page: shows check-your-email state after submit', async ({ page }) => {
+  await page.route('**/api/login', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ success: true }) })
+  );
+
+  await page.goto('/login');
+  await page.locator('input[type="email"]').fill('user@example.com');
+  await page.locator('button:has-text("Send sign-in link")').click();
+
+  await expect(page.locator('text=Check your inbox')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=user@example.com')).toBeVisible();
+
+  await screenshot(page, '20-login-email-sent');
+});
+
+test('login page: shows error banner for expired link', async ({ page }) => {
+  await page.goto('/login?error=expired');
+  await expect(page.locator('text=sign-in link has expired')).toBeVisible();
+
+  await screenshot(page, '21-login-expired-error');
+});
