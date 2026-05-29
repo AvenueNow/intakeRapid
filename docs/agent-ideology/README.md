@@ -1,10 +1,36 @@
 # Agent Ideology
 
-Design decisions and non-code thinking behind the VenueHopper agentic experience.
-These are "commit logs" for ideas — each file captures a decision, what we're trying,
-and the trade-offs we accepted.
+Design decisions, test results, and prompt iteration history for the VenueHopper
+agentic venue discovery experience.
+
+---
+
+## For Claude Code sessions — read this first
+
+> **Before editing the system prompt or agent behavior:**
+>
+> 1. Run `npm run eval:agent` from `intake-form/` to get the current score.
+> 2. Read `docs/agent-ideology/eval-log.md` to understand recent failures.
+> 3. Read `docs/agent-ideology/prompt-changelog.md` to understand prior decisions.
+> 4. Make one targeted change to `lib/options-system-prompt.ts`.
+> 5. Re-run eval. Score must not drop below previous baseline.
+> 6. Log the result in both `eval-log.md` and `prompt-changelog.md`.
+>
+> **Current baseline:** 81% (2026-05-29, Run 2). Do not merge a prompt change
+> that drops below this score.
+
+---
 
 ## Index
+
+### Prompt & eval (start here when iterating)
+
+| File | Purpose |
+|------|---------|
+| [eval-log.md](eval-log.md) | Every eval run: date, scores per scenario, failures, notes |
+| [prompt-changelog.md](prompt-changelog.md) | Every meaningful prompt change: what, why, result |
+
+### Ideology reference (read before changing behavior)
 
 | File | Core idea |
 |------|-----------|
@@ -16,6 +42,8 @@ and the trade-offs we accepted.
 | [schema-drift.md](schema-drift.md) | Users change their minds — the schema must too |
 | [inference-over-asking.md](inference-over-asking.md) | Prefer to infer from reactions over direct questions |
 | [termination.md](termination.md) | Knowing when to stop showing packages and close |
+
+---
 
 ## Philosophy
 

@@ -25,10 +25,11 @@ git push origin main
 ## Commands
 
 ```bash
-npm run dev      # start dev server on localhost:3000
-npm run build    # production build
-npm run lint     # ESLint
-npm run test:e2e # Playwright e2e tests (runs against localhost:3000, auto-starts dev server)
+npm run dev        # start dev server on localhost:3000
+npm run build      # production build
+npm run lint       # ESLint
+npm run test:e2e   # Playwright e2e tests (runs against localhost:3000, auto-starts dev server)
+npm run eval:agent # LLM-judged ideology eval for the options-chat agent (~$0.15 in API credits)
 ```
 
 ## Testing
@@ -41,6 +42,20 @@ Playwright e2e tests live in `e2e/flow.spec.ts`. Tests auto-start the dev server
 3. Write new tests alongside new UI or API routes — don't ship untested features
 
 The test suite covers: chat layout, confirmation locked/unlocked, options page venue cards + save buttons + sticky bar, event page (public/owner/rename/share), and login flow. When adding new pages or components, add corresponding tests in the same PR.
+
+## Agent ideology eval
+
+**Before editing `lib/options-system-prompt.ts` or any agent behavior in `app/api/options-chat/route.ts`:**
+
+1. Run `npm run eval:agent` — baseline score must be recorded before any change
+2. Read `docs/agent-ideology/eval-log.md` — recent failures and what's been tried
+3. Read `docs/agent-ideology/prompt-changelog.md` — every prior prompt decision
+4. Make one targeted change, re-run eval, confirm score doesn't drop
+5. Log the result in both files above
+
+**Current baseline:** 81% (2026-05-29). Do not ship a prompt change below this score.
+
+Full ideology reference: `docs/agent-ideology/README.md`
 
 ## Environment variables
 
